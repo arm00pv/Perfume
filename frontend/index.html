@@ -93,7 +93,9 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    // If we get an error response, try to parse the JSON body for a specific error message
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
                 }
 
                 const data = await response.json();
@@ -103,6 +105,9 @@
             } catch (error) {
                 console.error('Error identifying perfume:', error);
                 statusDiv.textContent = `Error: ${error.message}`;
+                // Clear old overlays on error
+                overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+                lastDetections = [];
             } finally {
                 isRequesting = false;
             }
