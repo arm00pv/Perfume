@@ -29,3 +29,18 @@ With these settings, Render will:
 5. Provide your application with the necessary API key.
 
 After you apply these settings and redeploy, the backend should be fully functional. You can then deploy the `frontend` folder as a **"Static Site"** on Render, and it will work with your live backend.
+
+---
+
+### Frontend Static Site Settings
+
+After your backend is successfully deployed and live, you can deploy your frontend.
+
+- **Service Type:** On Render, choose **"Static Site"**.
+- **Root Directory:** `frontend`
+  - This tells Render where your `index.html` file is.
+- **Build Command:** You can likely leave this blank. Your frontend is simple and doesn't have a build step. If Render requires a command, you can use something that does nothing, like `echo "No build step needed"`.
+- **Publish Directory:** `frontend`
+  - This is the directory that Render will serve to users.
+
+Once you deploy the static site, Render will give you a public URL for it. When you visit that URL, it will load your `index.html`, which will then communicate with your live backend service.
