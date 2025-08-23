@@ -2,6 +2,3 @@ Flask
 Flask-Cors
 beautifulsoup4
 requests
-ultralytics
-roboflow
-gunicorn

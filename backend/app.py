@@ -4,10 +4,8 @@ import requests
 from bs4 import BeautifulSoup
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from roboflow import Roboflow
 
 app = Flask(__name__)
-@app.route('/')
 CORS(app)
 
 # Create an 'uploads' directory if it doesn't exist
@@ -79,44 +77,13 @@ def identify_perfume():
     except Exception as e:
         return jsonify({'error': f'Invalid image data: {e}'}), 400
 
-    image_path = os.path.join('uploads', 'captured_image.png')
-    with open(image_path, 'wb') as f:
+    with open(os.path.join('uploads', 'captured_image.png'), 'wb') as f:
         f.write(image_data)
 
-    try:
-        # Initialize Roboflow
-        api_key = os.environ.get("ROBOFLOW_API_KEY")
-        if not api_key:
-            return jsonify({'error': 'ROBOFLOW_API_KEY environment variable not set.'}), 500
-
-        rf = Roboflow(api_key=api_key)
-        project = rf.workspace("zixen15").project("perfume-detection-5gyru")
-        model = project.version(3).model
-
-        # Run inference
-        prediction = model.predict(image_path, confidence=40, overlap=30).json()
-
-        detected_labels = []
-        if prediction['predictions']:
-            # Sort by confidence and take the top one
-            top_prediction = sorted(prediction['predictions'], key=lambda x: x['confidence'], reverse=True)[0]
-            detected_labels = [p['class'] for p in prediction['predictions']]
-            perfume_name = top_prediction['class']
-
-            # Scrape Fragrantica with the identified perfume name
-            fragrance_profile = scrape_fragrantica(perfume_name)
-        else:
-            detected_labels = []
-            fragrance_profile = {'error': 'No perfume detected in the image.'}
-
-        return jsonify({
-            'detected_labels': detected_labels,
-            'fragrance_profile': fragrance_profile,
-            'raw_prediction': prediction
-        })
-
-    except Exception as e:
-        return jsonify({'error': f'An error occurred during Roboflow inference: {e}'}), 500
+    # Placeholder for YOLO/Roboflow integration
+    return jsonify({
+        'message': 'Google Cloud Vision removed. YOLO/Roboflow integration pending.'
+    })
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
