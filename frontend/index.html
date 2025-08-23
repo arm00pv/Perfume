@@ -138,6 +138,18 @@
                  html += `<p><strong>Fragrance Profile:</strong> Not found.</p>`;
             }
 
+            html += '<h3>Verification</h3>';
+            if (data.is_verified) {
+                html += '<p style="color: green;">✅ Verified</p>';
+            } else {
+                html += '<p style="color: red;">❌ Unverified</p>';
+            }
+
+            if (data.ocr_text) {
+                html += '<h4>OCR Result:</h4>';
+                html += `<p><em>"${data.ocr_text}"</em></p>`;
+            }
+
             if (data.raw_prediction) {
                 html += '<h3>Raw Prediction Data:</h3>';
                 html += `<pre>${JSON.stringify(data.raw_prediction, null, 2)}</pre>`;

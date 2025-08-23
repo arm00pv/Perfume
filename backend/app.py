@@ -5,6 +5,8 @@ from bs4 import BeautifulSoup
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from roboflow import Roboflow
+from PIL import Image
+import io
 
 app = Flask(__name__)
 CORS(app)
@@ -66,6 +68,34 @@ def scrape_fragrantica(perfume_name):
         return {'error': f"An error occurred during scraping: {e}"}
 
 
+def perform_ocr(image_bytes, api_key):
+    """
+    Performs OCR on an image using the Roboflow OCR API.
+    """
+    ocr_url = "https://infer.roboflow.com/doctr/ocr"
+
+    # Roboflow OCR API expects base64 encoded image
+    base64_image = base64.b64encode(image_bytes).decode('utf-8')
+
+    payload = {
+        "image": {
+            "type": "base64",
+            "value": base64_image
+        }
+    }
+
+    params = {
+        'api_key': api_key
+    }
+
+    try:
+        response = requests.post(ocr_url, params=params, json=payload)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        return {'error': f"Error calling OCR API: {e}"}
+
+
 @app.route('/api/identify', methods=['POST'])
 def identify_perfume():
     data = request.get_json()
@@ -96,6 +126,9 @@ def identify_perfume():
         prediction = model.predict(image_path, confidence=40, overlap=30).json()
 
         detected_labels = []
+        fragrance_profile = {}
+        ocr_result = {}
+
         if prediction['predictions']:
             # Sort by confidence and take the top one
             top_prediction = sorted(prediction['predictions'], key=lambda x: x['confidence'], reverse=True)[0]
@@ -104,13 +137,52 @@ def identify_perfume():
 
             # Scrape Fragrantica with the identified perfume name
             fragrance_profile = scrape_fragrantica(perfume_name)
+
+            # --- OCR Step ---
+            img = Image.open(image_path)
+
+            # Bounding box coordinates
+            x = top_prediction['x']
+            y = top_prediction['y']
+            width = top_prediction['width']
+            height = top_prediction['height']
+
+            # Calculate coordinates for cropping
+            left = x - width / 2
+            top = y - height / 2
+            right = x + width / 2
+            bottom = y + height / 2
+
+            # Crop the image
+            cropped_img = img.crop((left, top, right, bottom))
+
+            # Convert cropped image to bytes for OCR
+            with io.BytesIO() as output:
+                cropped_img.save(output, format="PNG")
+                image_bytes = output.getvalue()
+
+            # Perform OCR
+            ocr_result = perform_ocr(image_bytes, api_key)
+
         else:
-            detected_labels = []
             fragrance_profile = {'error': 'No perfume detected in the image.'}
+
+        # --- Verification Step ---
+        is_verified = False
+        ocr_text = ""
+        if 'result' in ocr_result:
+            ocr_text = ocr_result['result']
+            # Simple verification: check if the detected class name is in the OCR text
+            # (after normalizing the class name from e.g. 'chanel-no-5' to 'chanel no 5')
+            normalized_perfume_name = perfume_name.replace('-', ' ')
+            if normalized_perfume_name in ocr_text.lower():
+                is_verified = True
 
         return jsonify({
             'detected_labels': detected_labels,
             'fragrance_profile': fragrance_profile,
+            'ocr_text': ocr_text,
+            'is_verified': is_verified,
             'raw_prediction': prediction
         })
 
