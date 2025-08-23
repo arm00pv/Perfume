@@ -60,7 +60,7 @@ def scrape_fragrantica(perfume_name):
             if note_list:
                 notes[note_type] = note_list
 
-        return notes
+        return {'notes': notes, 'url': perfume_url}
 
     except requests.exceptions.RequestException as e:
         return {'error': f"Error fetching from Fragrantica: {e}"}
@@ -136,7 +136,14 @@ def identify_perfume():
             perfume_name = top_prediction['class']
 
             # Scrape Fragrantica with the identified perfume name
-            fragrance_profile = scrape_fragrantica(perfume_name)
+            fragrance_data = scrape_fragrantica(perfume_name)
+            if 'error' not in fragrance_data:
+                fragrance_profile = fragrance_data.get('notes', {})
+                fragrantica_url = fragrance_data.get('url')
+            else:
+                fragrance_profile = fragrance_data
+                fragrantica_url = None
+
 
             # --- OCR Step ---
             img = Image.open(image_path)
@@ -181,6 +188,7 @@ def identify_perfume():
         return jsonify({
             'detected_labels': detected_labels,
             'fragrance_profile': fragrance_profile,
+            'fragrantica_url': fragrantica_url,
             'ocr_text': ocr_text,
             'is_verified': is_verified,
             'raw_prediction': prediction
