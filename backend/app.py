@@ -7,6 +7,7 @@ from flask_cors import CORS
 from roboflow import Roboflow
 
 app = Flask(__name__)
+@app.route('/')
 CORS(app)
 
 # Create an 'uploads' directory if it doesn't exist
