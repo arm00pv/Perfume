@@ -94,12 +94,28 @@ def identify_perfume():
     except Exception as e:
         return jsonify({'error': f'Error processing incoming image: {e}'}), 400
 
-    # --- 2. Object Detection ---
+    # --- 2. OCR First (Optimization) ---
     try:
         api_key = os.environ.get("ROBOFLOW_API_KEY")
         if not api_key:
             return jsonify({'error': 'ROBOFLOW_API_KEY environment variable not set on server.'}), 500
 
+        full_image_ocr_result = perform_ocr(image_data, api_key)
+        if 'error' in full_image_ocr_result:
+            return jsonify({'error': f"Failed during initial OCR step: {full_image_ocr_result['error']}"}), 500
+
+        ocr_text = full_image_ocr_result.get('result', '').lower()
+
+        # Define keywords to trigger object detection
+        keywords = ["parfum", "toilette", "cologne", "fragrance", "eau"]
+        if not any(keyword in ocr_text for keyword in keywords):
+            return jsonify({'error': 'No perfume-related keywords found in image.'})
+
+    except Exception as e:
+        return jsonify({'error': f'Failed during OCR-first optimization step: {e}'}), 500
+
+    # --- 3. Object Detection (Triggered by OCR) ---
+    try:
         rf = Roboflow(api_key=api_key)
         project = rf.workspace("zixen15").project("perfume-mfzff-sjzin")
         model = project.version(3).model
@@ -108,14 +124,14 @@ def identify_perfume():
         return jsonify({'error': f'Failed during object detection step: {e}'}), 500
 
     if not prediction.get('predictions'):
-        return jsonify({'error': 'No perfume detected in the image.'})
+        return jsonify({'error': 'OCR found keywords, but no perfume was detected by the object model.'})
 
-    # --- 3. Process Top Prediction ---
+    # --- 4. Process Top Prediction ---
     top_prediction = sorted(prediction['predictions'], key=lambda x: x['confidence'], reverse=True)[0]
     perfume_name = top_prediction['class']
     detected_labels = [p['class'] for p in prediction['predictions']]
 
-    # --- 4. Scrape Fragrantica ---
+    # --- 5. Scrape Fragrantica ---
     try:
         fragrance_data = scrape_fragrantica(perfume_name)
         if 'error' in fragrance_data:
@@ -127,36 +143,21 @@ def identify_perfume():
     except Exception as e:
         return jsonify({'error': f'Failed during Fragrantica scraping step for "{perfume_name}": {e}'}), 500
 
-    # --- 5. Crop Image and Perform OCR ---
-    try:
-        img = Image.open(image_path)
-        x, y, width, height = top_prediction['x'], top_prediction['y'], top_prediction['width'], top_prediction['height']
-        left, top, right, bottom = x - width / 2, y - height / 2, x + width / 2, y + height / 2
-        cropped_img = img.crop((left, top, right, bottom))
-
-        with io.BytesIO() as output:
-            cropped_img.save(output, format="PNG")
-            image_bytes = output.getvalue()
-
-        ocr_result = perform_ocr(image_bytes, api_key)
-    except Exception as e:
-        return jsonify({'error': f'Failed during image cropping or OCR step: {e}'}), 500
+    # The OCR result we use for verification is the one from the full image
+    # We don't need to run it again on the cropped image
 
     # --- 6. Verification Logic ---
     is_verified = False
-    ocr_text = ""
-    if 'result' in ocr_result:
-        ocr_text = ocr_result.get('result', '')
-        normalized_perfume_name = perfume_name.replace('-', ' ')
-        if normalized_perfume_name in ocr_text.lower():
-            is_verified = True
+    normalized_perfume_name = perfume_name.replace('-', ' ')
+    if normalized_perfume_name in ocr_text:
+        is_verified = True
 
     # --- 7. Final Response ---
     return jsonify({
         'detected_labels': detected_labels,
         'fragrance_profile': fragrance_profile,
         'fragrantica_url': fragrantica_url,
-        'ocr_text': ocr_text,
+        'ocr_text': full_image_ocr_result.get('result', ''),
         'is_verified': is_verified,
         'raw_prediction': prediction
     })
