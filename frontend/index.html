@@ -49,7 +49,7 @@
         const overlayCtx = overlayCanvas.getContext('2d');
         const statusDiv = document.getElementById('status');
 
-        let lastDetections = [];
+        let activeDetections = []; // Will store { prediction, fragrantica_url }
         let isRequesting = false;
         const processInterval = 1000; // ms between requests
 
@@ -61,7 +61,6 @@
                 video.addEventListener('loadedmetadata', () => {
                     overlayCanvas.width = video.videoWidth;
                     overlayCanvas.height = video.videoHeight;
-                    // Start the processing loop
                     setInterval(processFrame, processInterval);
                 });
             } catch (err) {
@@ -77,7 +76,6 @@
             isRequesting = true;
             statusDiv.textContent = 'Analyzing...';
 
-            // Draw current video frame to a temporary canvas to get data URL
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = video.videoWidth;
             tempCanvas.height = video.videoHeight;
@@ -93,43 +91,52 @@
                 });
 
                 if (!response.ok) {
-                    // If we get an error response, try to parse the JSON body for a specific error message
                     const errorData = await response.json();
                     throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
                 }
 
                 const data = await response.json();
-                handleDetections(data);
+                handleApiResponse(data);
 
             } catch (error) {
                 console.error('Error identifying perfume:', error);
                 statusDiv.textContent = `Error: ${error.message}`;
-                // Clear old overlays on error
-                overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-                lastDetections = [];
+                activeDetections = []; // Clear detections on error
+                drawOverlays();
             } finally {
                 isRequesting = false;
             }
         }
 
-        function handleDetections(data) {
-            statusDiv.textContent = 'Live'; // Update status now that request is complete
-            lastDetections = data.raw_prediction ? data.raw_prediction.predictions : [];
+        function handleApiResponse(data) {
+            statusDiv.textContent = 'Live';
+
+            // We now store the whole prediction object and the URL together
+            if (data.raw_prediction && data.raw_prediction.predictions && data.raw_prediction.predictions.length > 0) {
+                 // For simplicity, we associate the single URL with the top prediction.
+                 // A multi-detection scenario would require the backend to return a URL for each prediction.
+                const topPrediction = data.raw_prediction.predictions.sort((a, b) => b.confidence - a.confidence)[0];
+                activeDetections = [{
+                    prediction: topPrediction,
+                    fragrantica_url: data.fragrantica_url
+                }];
+            } else {
+                activeDetections = [];
+            }
             drawOverlays();
         }
 
         function drawOverlays() {
             overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
-            lastDetections.forEach(p => {
-                // Draw bounding box
+            activeDetections.forEach(det => {
+                const p = det.prediction;
                 const x = p.x - p.width / 2;
                 const y = p.y - p.height / 2;
                 overlayCtx.strokeStyle = '#00FF00';
                 overlayCtx.lineWidth = 4;
                 overlayCtx.strokeRect(x, y, p.width, p.height);
 
-                // Draw label
                 overlayCtx.fillStyle = '#00FF00';
                 overlayCtx.font = '24px Arial';
                 const label = `${p.class} (${(p.confidence * 100).toFixed(1)}%)`;
@@ -141,41 +148,20 @@
             const rect = overlayCanvas.getBoundingClientRect();
             const scaleX = overlayCanvas.width / rect.width;
             const scaleY = overlayCanvas.height / rect.height;
-            const x = (event.clientX - rect.left) * scaleX;
-            const y = (event.clientY - rect.top) * scaleY;
+            const clickX = (event.clientX - rect.left) * scaleX;
+            const clickY = (event.clientY - rect.top) * scaleY;
 
-            // Find if a detection was clicked
-            const clickedDetection = lastDetections.find(p => {
+            const clickedDetection = activeDetections.find(det => {
+                const p = det.prediction;
                 const boxX = p.x - p.width / 2;
                 const boxY = p.y - p.height / 2;
-                return x >= boxX && x <= boxX + p.width && y >= boxY && y <= boxY + p.height;
+                return clickX >= boxX && clickX <= boxX + p.width && clickY >= boxY && clickY <= boxY + p.height;
             });
 
-            if (clickedDetection) {
-                statusDiv.textContent = `Clicked on ${clickedDetection.class}. Fetching URL...`;
-                // To get the URL, we would need to associate it with the prediction.
-                // For now, we'll just re-run a single identification to get the URL.
-                // A better implementation would cache URLs or have the backend return all URLs for all detections.
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = video.videoWidth;
-                tempCanvas.height = video.videoHeight;
-                const tempCtx = tempCanvas.getContext('2d');
-                tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
-                const dataUrl = tempCanvas.toDataURL('image/jpeg');
-
-                fetch('https://perfume-dj64.onrender.com/api/identify', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ image: dataUrl }),
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if(data.fragrantica_url) {
-                        window.open(data.fragrantica_url, '_blank');
-                    } else {
-                        statusDiv.textContent = "Could not find a profile page for the clicked perfume.";
-                    }
-                });
+            if (clickedDetection && clickedDetection.fragrantica_url) {
+                window.open(clickedDetection.fragrantica_url, '_blank');
+            } else if (clickedDetection) {
+                statusDiv.textContent = `Could not find a profile page for ${clickedDetection.prediction.class}.`;
             }
         });
 
