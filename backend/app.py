@@ -7,6 +7,7 @@ from flask_cors import CORS
 from roboflow import Roboflow
 from PIL import Image
 import io
+from cachetools import TTLCache, cached
 
 app = Flask(__name__)
 CORS(app)
@@ -15,9 +16,13 @@ CORS(app)
 if not os.path.exists('uploads'):
     os.makedirs('uploads')
 
+# Initialize a cache that holds up to 100 items and expires items after 1 hour (3600 seconds)
+cache = TTLCache(maxsize=100, ttl=3600)
+
+@cached(cache)
 def scrape_fragrantica(perfume_name):
     """
-    Scrapes Fragrantica.com for perfume notes.
+    Scrapes Fragrantica.com for perfume notes. Results are cached.
     """
     search_url = f"https://www.fragrantica.com/search/?q={perfume_name}"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
