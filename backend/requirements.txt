@@ -7,3 +7,5 @@ roboflow
 gunicorn
 Pillow
 cachetools
+thefuzz
+python-Levenshtein

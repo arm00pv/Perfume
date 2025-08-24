@@ -8,6 +8,7 @@ from roboflow import Roboflow
 from PIL import Image
 import io
 from cachetools import TTLCache, cached
+from thefuzz import fuzz
 
 app = Flask(__name__)
 CORS(app)
@@ -153,9 +154,11 @@ def identify_perfume():
 
     # --- 6. Verification Logic ---
     is_verified = False
-    normalized_perfume_name = perfume_name.replace('-', ' ')
-    if normalized_perfume_name in ocr_text:
-        is_verified = True
+    if ocr_text: # Only attempt to verify if OCR returned something
+        normalized_perfume_name = perfume_name.replace('-', ' ')
+        # Use partial_ratio to find the best substring match. Threshold of 90 for high confidence.
+        if fuzz.partial_ratio(normalized_perfume_name, ocr_text) >= 90:
+            is_verified = True
 
     # --- 7. Final Response ---
     return jsonify({
