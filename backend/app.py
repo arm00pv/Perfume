@@ -101,7 +101,7 @@ def identify_perfume():
             return jsonify({'error': 'ROBOFLOW_API_KEY environment variable not set on server.'}), 500
 
         rf = Roboflow(api_key=api_key)
-        project = rf.workspace("zixen15").project("perfume-detection-5gyru")
+        project = rf.workspace("zixen15").project("perfume-mfzff-sjzin")
         model = project.version(3).model
         prediction = model.predict(image_path, confidence=40, overlap=30).json()
     except Exception as e:
