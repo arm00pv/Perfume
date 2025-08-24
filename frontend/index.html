@@ -32,24 +32,30 @@
         #overlay-canvas {
             cursor: pointer;
         }
+        #results {
+            width: 640px;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
     <h1>Live Perfume Identifier</h1>
-    <p>Point your camera at a perfume bottle.</p>
+    <p>Point your camera at perfume bottles.</p>
     <div id="container">
         <video id="video" autoplay playsinline></video>
         <canvas id="overlay-canvas"></canvas>
     </div>
     <div id="status"></div>
+    <div id="results"></div>
 
     <script>
         const video = document.getElementById('video');
         const overlayCanvas = document.getElementById('overlay-canvas');
         const overlayCtx = overlayCanvas.getContext('2d');
         const statusDiv = document.getElementById('status');
+        const resultsDiv = document.getElementById('results');
 
-        let activeDetections = []; // Will store { prediction, fragrantica_url }
+        let activeDetections = []; // Will store a list of full result objects
         let isRequesting = false;
         const processInterval = 1000; // ms between requests
 
@@ -101,7 +107,7 @@
             } catch (error) {
                 console.error('Error identifying perfume:', error);
                 statusDiv.textContent = `Error: ${error.message}`;
-                activeDetections = []; // Clear detections on error
+                activeDetections = [];
                 drawOverlays();
             } finally {
                 isRequesting = false;
@@ -110,38 +116,50 @@
 
         function handleApiResponse(data) {
             statusDiv.textContent = 'Live';
-
-            // We now store the whole prediction object and the URL together
-            if (data.raw_prediction && data.raw_prediction.predictions && data.raw_prediction.predictions.length > 0) {
-                 // For simplicity, we associate the single URL with the top prediction.
-                 // A multi-detection scenario would require the backend to return a URL for each prediction.
-                const topPrediction = data.raw_prediction.predictions.sort((a, b) => b.confidence - a.confidence)[0];
-                activeDetections = [{
-                    prediction: topPrediction,
-                    fragrantica_url: data.fragrantica_url
-                }];
-            } else {
-                activeDetections = [];
-            }
+            activeDetections = data.results || [];
             drawOverlays();
+            displayResultsList(activeDetections);
         }
 
         function drawOverlays() {
             overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
             activeDetections.forEach(det => {
-                const p = det.prediction;
+                const p = det.prediction_data;
                 const x = p.x - p.width / 2;
                 const y = p.y - p.height / 2;
-                overlayCtx.strokeStyle = '#00FF00';
+
+                // Set color based on verification
+                overlayCtx.strokeStyle = det.is_verified ? '#00FF00' : '#FFD700'; // Green for verified, Gold for not
+                overlayCtx.fillStyle = overlayCtx.strokeStyle;
+
                 overlayCtx.lineWidth = 4;
                 overlayCtx.strokeRect(x, y, p.width, p.height);
 
-                overlayCtx.fillStyle = '#00FF00';
-                overlayCtx.font = '24px Arial';
-                const label = `${p.class} (${(p.confidence * 100).toFixed(1)}%)`;
+                overlayCtx.font = '20px Arial';
+                const label = `${p.class} (${(p.confidence * 100).toFixed(0)}%) ${det.is_verified ? '✅' : ''}`;
                 overlayCtx.fillText(label, x, y > 30 ? y - 10 : y + p.height + 30);
             });
+        }
+
+        function displayResultsList(detections) {
+            if (detections.length === 0) {
+                resultsDiv.innerHTML = '';
+                return;
+            }
+
+            let html = '<h3>Detected Perfumes:</h3><ul>';
+            detections.forEach(det => {
+                html += `<li>
+                    <strong>${det.prediction_data.class}</strong>
+                    (Confidence: ${(det.prediction_data.confidence * 100).toFixed(0)}%) -
+                    Verification: ${det.is_verified ? '<span style="color:green;">✅ Verified</span>' : '<span style="color:red;">❌ Unverified</span>'}
+                    <br>
+                    <small>OCR Text: <em>"${det.ocr_text}"</em></small>
+                </li>`;
+            });
+            html += '</ul>';
+            resultsDiv.innerHTML = html;
         }
 
         overlayCanvas.addEventListener('click', (event) => {
@@ -152,7 +170,7 @@
             const clickY = (event.clientY - rect.top) * scaleY;
 
             const clickedDetection = activeDetections.find(det => {
-                const p = det.prediction;
+                const p = det.prediction_data;
                 const boxX = p.x - p.width / 2;
                 const boxY = p.y - p.height / 2;
                 return clickX >= boxX && clickX <= boxX + p.width && clickY >= boxY && clickY <= boxY + p.height;
@@ -161,7 +179,7 @@
             if (clickedDetection && clickedDetection.fragrantica_url) {
                 window.open(clickedDetection.fragrantica_url, '_blank');
             } else if (clickedDetection) {
-                statusDiv.textContent = `Could not find a profile page for ${clickedDetection.prediction.class}.`;
+                statusDiv.textContent = `Could not find a profile page for ${clickedDetection.prediction_data.class}.`;
             }
         });
 

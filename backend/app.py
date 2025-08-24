@@ -87,88 +87,72 @@ def perform_ocr(image_bytes, api_key):
 
 @app.route('/api/identify', methods=['POST'])
 def identify_perfume():
-    # --- 1. Get and Save Image ---
     try:
         data = request.get_json()
         if 'image' not in data:
             return jsonify({'error': 'No image data found in request.'}), 400
         header, encoded = data['image'].split(',', 1)
         image_data = base64.b64decode(encoded)
-        image_path = os.path.join('uploads', 'captured_image.png')
-        with open(image_path, 'wb') as f:
-            f.write(image_data)
     except Exception as e:
         return jsonify({'error': f'Error processing incoming image: {e}'}), 400
 
-    # --- 2. OCR First (Optimization) ---
     try:
         api_key = os.environ.get("ROBOFLOW_API_KEY")
         if not api_key:
-            return jsonify({'error': 'ROBOFLOW_API_KEY environment variable not set on server.'}), 500
+            return jsonify({'error': 'ROBOFLOW_API_KEY not set.'}), 500
 
-        full_image_ocr_result = perform_ocr(image_data, api_key)
-        if 'error' in full_image_ocr_result:
-            return jsonify({'error': f"Failed during initial OCR step: {full_image_ocr_result['error']}"}), 500
-
-        ocr_text = full_image_ocr_result.get('result', '').lower()
-
-        # Define keywords to trigger object detection
-        keywords = ["parfum", "toilette", "cologne", "fragrance", "eau"]
-        if not any(keyword in ocr_text for keyword in keywords):
-            return jsonify({'error': 'No perfume-related keywords found in image.'})
-
-    except Exception as e:
-        return jsonify({'error': f'Failed during OCR-first optimization step: {e}'}), 500
-
-    # --- 3. Object Detection (Triggered by OCR) ---
-    try:
         rf = Roboflow(api_key=api_key)
         project = rf.workspace("zixen15").project("perfume-mfzff-sjzin")
         model = project.version(3).model
-        prediction = model.predict(image_path, confidence=40, overlap=30).json()
+        prediction = model.predict(image_data, confidence=40, overlap=30).json()
     except Exception as e:
-        return jsonify({'error': f'Failed during object detection step: {e}'}), 500
+        return jsonify({'error': f'Failed during object detection: {e}'}), 500
 
-    if not prediction.get('predictions'):
-        return jsonify({'error': 'OCR found keywords, but no perfume was detected by the object model.'})
+    results = []
+    if prediction.get('predictions'):
+        img = Image.open(io.BytesIO(image_data))
+        for pred in prediction['predictions']:
+            try:
+                perfume_name = pred['class']
 
-    # --- 4. Process Top Prediction ---
-    top_prediction = sorted(prediction['predictions'], key=lambda x: x['confidence'], reverse=True)[0]
-    perfume_name = top_prediction['class']
-    detected_labels = [p['class'] for p in prediction['predictions']]
+                # Scrape Fragrantica
+                fragrance_data = scrape_fragrantica(perfume_name)
+                fragrance_profile = fragrance_data if 'error' in fragrance_data else fragrance_data.get('notes', {})
+                fragrantica_url = None if 'error' in fragrance_data else fragrance_data.get('url')
 
-    # --- 5. Scrape Fragrantica ---
-    try:
-        fragrance_data = scrape_fragrantica(perfume_name)
-        if 'error' in fragrance_data:
-            fragrance_profile = fragrance_data
-            fragrantica_url = None
-        else:
-            fragrance_profile = fragrance_data.get('notes', {})
-            fragrantica_url = fragrance_data.get('url')
-    except Exception as e:
-        return jsonify({'error': f'Failed during Fragrantica scraping step for "{perfume_name}": {e}'}), 500
+                # Crop for OCR
+                x, y, width, height = pred['x'], pred['y'], pred['width'], pred['height']
+                left, top, right, bottom = x - width / 2, y - height / 2, x + width / 2, y + height / 2
+                cropped_img = img.crop((left, top, right, bottom))
 
-    # The OCR result we use for verification is the one from the full image
-    # We don't need to run it again on the cropped image
+                with io.BytesIO() as output:
+                    cropped_img.save(output, format="PNG")
+                    image_bytes_cropped = output.getvalue()
 
-    # --- 6. Verification Logic ---
-    is_verified = False
-    if ocr_text: # Only attempt to verify if OCR returned something
-        normalized_perfume_name = perfume_name.replace('-', ' ')
-        # Use partial_ratio to find the best substring match. Threshold of 90 for high confidence.
-        if fuzz.partial_ratio(normalized_perfume_name, ocr_text) >= 90:
-            is_verified = True
+                # Perform OCR on cropped image
+                ocr_result = perform_ocr(image_bytes_cropped, api_key)
+                ocr_text = ocr_result.get('result', '')
 
-    # --- 7. Final Response ---
-    return jsonify({
-        'detected_labels': detected_labels,
-        'fragrance_profile': fragrance_profile,
-        'fragrantica_url': fragrantica_url,
-        'ocr_text': full_image_ocr_result.get('result', ''),
-        'is_verified': is_verified,
-        'raw_prediction': prediction
-    })
+                # Verification
+                is_verified = False
+                if ocr_text:
+                    normalized_perfume_name = perfume_name.replace('-', ' ')
+                    if fuzz.partial_ratio(normalized_perfume_name, ocr_text.lower()) >= 90:
+                        is_verified = True
+
+                results.append({
+                    'prediction_data': pred,
+                    'fragrance_profile': fragrance_profile,
+                    'fragrantica_url': fragrantica_url,
+                    'ocr_text': ocr_text,
+                    'is_verified': is_verified
+                })
+            except Exception as e:
+                # If one prediction fails, log it and continue with the others
+                print(f"Error processing prediction for {pred.get('class', 'unknown')}: {e}")
+                continue
+
+    return jsonify({'results': results})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
