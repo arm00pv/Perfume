@@ -100,7 +100,6 @@
 
                 const data = await response.json();
                 handleDetections(data);
-                statusDiv.textContent = 'Live';
 
             } catch (error) {
                 console.error('Error identifying perfume:', error);
@@ -114,6 +113,7 @@
         }
 
         function handleDetections(data) {
+            statusDiv.textContent = 'Live'; // Update status now that request is complete
             lastDetections = data.raw_prediction ? data.raw_prediction.predictions : [];
             drawOverlays();
         }
