@@ -84,9 +84,9 @@ def perform_ocr(image_bytes, api_key):
     except requests.exceptions.RequestException as e:
         return {'error': f"Error calling OCR API: {e}"}
 
-
+# --- New Fast Endpoint for Object Detection Only ---
 @app.route('/api/identify', methods=['POST'])
-def identify_perfume():
+def identify_objects():
     try:
         data = request.get_json()
         if 'image' not in data:
@@ -105,54 +105,68 @@ def identify_perfume():
         project = rf.workspace("zixen15").project("perfume-mfzff-sjzin")
         model = project.version(3).model
         prediction = model.predict(image_data, confidence=40, overlap=30).json()
+
+        return jsonify(prediction)
+
     except Exception as e:
         return jsonify({'error': f'Failed during object detection: {e}'}), 500
 
-    results = []
-    if prediction.get('predictions'):
+# --- New Slow Endpoint for Getting Details on Demand ---
+@app.route('/api/get_details', methods=['POST'])
+def get_details():
+    try:
+        data = request.get_json()
+        perfume_name = data.get('perfume_name')
+        bounding_box = data.get('bounding_box')
+        image_data_url = data.get('image_data_url')
+
+        if not all([perfume_name, bounding_box, image_data_url]):
+            return jsonify({'error': 'Missing perfume_name, bounding_box, or image_data_url'}), 400
+
+        header, encoded = image_data_url.split(',', 1)
+        image_data = base64.b64decode(encoded)
         img = Image.open(io.BytesIO(image_data))
-        for pred in prediction['predictions']:
-            try:
-                perfume_name = pred['class']
 
-                # Scrape Fragrantica
-                fragrance_data = scrape_fragrantica(perfume_name)
-                fragrance_profile = fragrance_data if 'error' in fragrance_data else fragrance_data.get('notes', {})
-                fragrantica_url = None if 'error' in fragrance_data else fragrance_data.get('url')
+    except Exception as e:
+        return jsonify({'error': f'Error processing incoming request data: {e}'}), 400
 
-                # Crop for OCR
-                x, y, width, height = pred['x'], pred['y'], pred['width'], pred['height']
-                left, top, right, bottom = x - width / 2, y - height / 2, x + width / 2, y + height / 2
-                cropped_img = img.crop((left, top, right, bottom))
+    # Scrape Fragrantica
+    try:
+        fragrance_data = scrape_fragrantica(perfume_name)
+        fragrance_profile = fragrance_data if 'error' in fragrance_data else fragrance_data.get('notes', {})
+        fragrantica_url = None if 'error' in fragrance_data else fragrance_data.get('url')
+    except Exception as e:
+        return jsonify({'error': f'Failed during Fragrantica scraping for "{perfume_name}": {e}'}), 500
 
-                with io.BytesIO() as output:
-                    cropped_img.save(output, format="PNG")
-                    image_bytes_cropped = output.getvalue()
+    # Crop image and perform OCR
+    try:
+        x, y, width, height = bounding_box['x'], bounding_box['y'], bounding_box['width'], bounding_box['height']
+        left, top, right, bottom = x - width / 2, y - height / 2, x + width / 2, y + height / 2
+        cropped_img = img.crop((left, top, right, bottom))
 
-                # Perform OCR on cropped image
-                ocr_result = perform_ocr(image_bytes_cropped, api_key)
-                ocr_text = ocr_result.get('result', '')
+        with io.BytesIO() as output:
+            cropped_img.save(output, format="PNG")
+            image_bytes_cropped = output.getvalue()
 
-                # Verification
-                is_verified = False
-                if ocr_text:
-                    normalized_perfume_name = perfume_name.replace('-', ' ')
-                    if fuzz.partial_ratio(normalized_perfume_name, ocr_text.lower()) >= 90:
-                        is_verified = True
+        api_key = os.environ.get("ROBOFLOW_API_KEY")
+        ocr_result = perform_ocr(image_bytes_cropped, api_key)
+        ocr_text = ocr_result.get('result', '')
+    except Exception as e:
+        return jsonify({'error': f'Failed during image cropping or OCR: {e}'}), 500
 
-                results.append({
-                    'prediction_data': pred,
-                    'fragrance_profile': fragrance_profile,
-                    'fragrantica_url': fragrantica_url,
-                    'ocr_text': ocr_text,
-                    'is_verified': is_verified
-                })
-            except Exception as e:
-                # If one prediction fails, log it and continue with the others
-                print(f"Error processing prediction for {pred.get('class', 'unknown')}: {e}")
-                continue
+    # Verification
+    is_verified = False
+    if ocr_text:
+        normalized_perfume_name = perfume_name.replace('-', ' ')
+        if fuzz.partial_ratio(normalized_perfume_name, ocr_text.lower()) >= 90:
+            is_verified = True
 
-    return jsonify({'results': results})
+    return jsonify({
+        'fragrance_profile': fragrance_profile,
+        'fragrantica_url': fragrantica_url,
+        'ocr_text': ocr_text,
+        'is_verified': is_verified
+    })
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
