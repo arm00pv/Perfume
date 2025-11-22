@@ -19,28 +19,54 @@ def index():
 
 def get_recommendation(notes):
     """
-    Generates a simple recommendation based on scent notes.
+    Generates a creative recommendation based on scent notes.
     """
-    recommendations = []
     all_notes = []
     for category in notes.values():
         all_notes.extend([n.lower() for n in category])
 
     all_notes_str = " ".join(all_notes)
 
-    if any(x in all_notes_str for x in ['lemon', 'citrus', 'bergamot', 'lime', 'orange', 'fresh']):
-        recommendations.append("Perfect for bright summer days.")
-    if any(x in all_notes_str for x in ['oud', 'amber', 'musk', 'leather', 'spice', 'wood', 'tobacco']):
-        recommendations.append("Great for evening wear or colder months.")
-    if any(x in all_notes_str for x in ['rose', 'jasmine', 'floral', 'lily', 'peony']):
-        recommendations.append("A romantic choice, suitable for spring.")
-    if any(x in all_notes_str for x in ['vanilla', 'sweet', 'gourmand', 'chocolate', 'caramel']):
-        recommendations.append("Cozy and inviting, good for dates.")
+    # Archetypes
+    is_fresh = any(x in all_notes_str for x in ['lemon', 'citrus', 'bergamot', 'lime', 'orange', 'fresh', 'water', 'sea'])
+    is_floral = any(x in all_notes_str for x in ['rose', 'jasmine', 'floral', 'lily', 'peony', 'lavender'])
+    is_warm = any(x in all_notes_str for x in ['oud', 'amber', 'musk', 'leather', 'spice', 'wood', 'tobacco', 'sandalwood'])
+    is_sweet = any(x in all_notes_str for x in ['vanilla', 'sweet', 'gourmand', 'chocolate', 'caramel', 'honey'])
 
-    if not recommendations:
-        recommendations.append("A versatile fragrance for any occasion.")
+    intro = "This fragrance profile suggests a scent that is "
+    desc = []
+    occasion = "It is likely best suited for "
 
-    return " ".join(recommendations)
+    if is_fresh and is_floral:
+        desc.append("bright, uplifting, and elegantly blooming")
+        occasion += "daytime wear in spring or summer, perfect for a garden party or a breezy walk."
+    elif is_fresh and is_warm:
+        desc.append("crisp yet deeply grounded, balancing energy with sophistication")
+        occasion += "office wear or early autumn days where you want to feel professional yet approachable."
+    elif is_floral and is_sweet:
+        desc.append("playful, romantic, and invitingly delicious")
+        occasion += "date nights or cozy gatherings where you want to leave a memorable impression."
+    elif is_warm and is_sweet:
+        desc.append("rich, intoxicating, and comfortably luxurious")
+        occasion += "winter evenings, formal events, or nights out by the fire."
+    elif is_fresh:
+        desc.append("clean, revitalizing, and full of energy")
+        occasion += "casual daily wear, the gym, or hot summer days."
+    elif is_warm:
+        desc.append("mysterious, bold, and commanding")
+        occasion += "making a statement at evening events or during colder months."
+    elif is_floral:
+        desc.append("classic, graceful, and purely feminine")
+        occasion += "weddings, brunches, or daily elegance."
+    elif is_sweet:
+        desc.append("youthful, fun, and comforting")
+        occasion += "casual outings or when you need a mood booster."
+    else:
+        desc.append("complex and unique")
+        occasion += "versatile occasions, adapting to your personal style."
+
+    full_text = intro + desc[0] + ". " + occasion
+    return full_text
 
 def scrape_fragrantica(perfume_name):
     """

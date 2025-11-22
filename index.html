@@ -6,6 +6,8 @@
     <title>ScentLens AI</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
         body {
             background-color: #f8f9fa;
@@ -70,6 +72,13 @@
         .nav-pills .nav-link {
             color: #6f42c1;
         }
+        .collection-item {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .collection-item:hover {
+            transform: scale(1.02);
+        }
     </style>
 </head>
 <body>
@@ -78,11 +87,12 @@
     <nav class="navbar navbar-light bg-white shadow-sm">
         <div class="container">
             <a class="navbar-brand" href="#">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-flower1" viewBox="0 0 16 16" style="margin-right: 8px;">
-                  <path d="M6.174 1.184c0 .845.69 1.528 1.528 1.528s1.528-.693 1.528-1.528S8.537.244 7.702.244 6.174.928 6.174 1.184M3.87 3.476c0 .844.69 1.528 1.528 1.528s1.528-.694 1.528-1.528-.693-1.528-1.528-1.528-1.528.694-1.528 1.528m6.706 0c0 .844.69 1.528 1.528 1.528s1.528-.694 1.528-1.528-.694-1.528-1.528-1.528-1.528.694-1.528 1.528m-3.352 9.834c0 .844.69 1.528 1.528 1.528s1.528-.693 1.528-1.528-.693-1.528-1.528-1.528-1.528.693-1.528 1.528m-3.352-3.12c0 .845.69 1.528 1.528 1.528s1.528-.694 1.528-1.528-.693-1.528-1.528-1.528-1.528.694-1.528 1.528m6.704 0c0 .845.69 1.528 1.528 1.528s1.528-.694 1.528-1.528-.694-1.528-1.528-1.528-1.528.694-1.528 1.528m-3.352-2.64c0 1.28-.662 1.592-1.528 2.435-.895-.868-1.528-1.148-1.528-2.435 0-1.272 1.418-2.304 3.056-2.304s3.056 1.032 3.056 2.304"/>
-                </svg>
+                <i class="bi bi-flower1 me-2"></i>
                 ScentLens AI
             </a>
+            <button class="btn btn-outline-primary btn-sm" id="dark-mode-toggle">
+                <i class="bi bi-moon"></i>
+            </button>
         </div>
     </nav>
 
@@ -99,13 +109,16 @@
         <!-- Navigation Tabs -->
         <ul class="nav nav-pills mb-4 justify-content-center" id="pills-tab" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="pills-camera-tab" data-bs-toggle="pill" data-bs-target="#pills-camera" type="button" role="tab">📷 Camera Scan</button>
+                <button class="nav-link active" id="pills-camera-tab" data-bs-toggle="pill" data-bs-target="#pills-camera" type="button" role="tab"><i class="bi bi-camera"></i> Camera Scan</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="pills-upload-tab" data-bs-toggle="pill" data-bs-target="#pills-upload" type="button" role="tab">📂 Upload Image</button>
+                <button class="nav-link" id="pills-upload-tab" data-bs-toggle="pill" data-bs-target="#pills-upload" type="button" role="tab"><i class="bi bi-upload"></i> Upload Image</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="pills-search-tab" data-bs-toggle="pill" data-bs-target="#pills-search" type="button" role="tab">🔍 Manual Search</button>
+                <button class="nav-link" id="pills-search-tab" data-bs-toggle="pill" data-bs-target="#pills-search" type="button" role="tab"><i class="bi bi-search"></i> Manual Search</button>
+            </li>
+             <li class="nav-item" role="presentation">
+                <button class="nav-link" id="pills-collection-tab" data-bs-toggle="pill" data-bs-target="#pills-collection" type="button" role="tab"><i class="bi bi-collection"></i> My Collection</button>
             </li>
         </ul>
 
@@ -151,6 +164,16 @@
                     </div>
                 </div>
             </div>
+
+             <!-- Collection Tab -->
+            <div class="tab-pane fade" id="pills-collection" role="tabpanel">
+                <div id="collection-grid" class="row row-cols-1 row-cols-md-3 g-4">
+                    <!-- Collection items injected here -->
+                    <div class="col text-center w-100">
+                        <p class="text-muted">Your collection is empty. Scan or search for perfumes to add them here.</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Results Section -->
@@ -165,8 +188,15 @@
                             </div>
                             <div class="col-md-8">
                                 <div class="card-body">
-                                    <h3 class="card-title" id="result-name">Perfume Name</h3>
-                                    <p class="card-text text-muted" id="result-desc">AI Confidence: <span id="result-confidence">-</span></p>
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h3 class="card-title" id="result-name">Perfume Name</h3>
+                                            <p class="card-text text-muted" id="result-desc">AI Confidence: <span id="result-confidence">-</span></p>
+                                        </div>
+                                        <button class="btn btn-outline-success btn-sm" id="save-collection-btn" title="Save to Collection">
+                                            <i class="bi bi-heart"></i> Save
+                                        </button>
+                                    </div>
 
                                     <div class="mb-3 p-2 bg-info bg-opacity-10 border border-info rounded">
                                         <strong>✨ AI Recommendation:</strong> <span id="result-recommendation">Loading...</span>
@@ -174,6 +204,15 @@
 
                                     <div id="result-notes">
                                         <!-- Notes will be injected here -->
+                                    </div>
+
+                                    <div class="mt-4 border-top pt-3 d-flex gap-2">
+                                        <a href="#" target="_blank" id="shop-link" class="btn btn-warning flex-grow-1">
+                                            <i class="bi bi-cart"></i> Shop on Google
+                                        </a>
+                                        <button class="btn btn-secondary" id="share-btn">
+                                            <i class="bi bi-share"></i> Share
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -214,6 +253,8 @@
         const resultsSection = document.getElementById('results-section');
         const errorAlert = document.getElementById('error-alert');
         const loadingOverlay = document.getElementById('loading-overlay');
+        const collectionGrid = document.getElementById('collection-grid');
+        const saveCollectionBtn = document.getElementById('save-collection-btn');
 
         // Results Elements
         const resultImage = document.getElementById('result-image');
@@ -221,26 +262,27 @@
         const resultConfidence = document.getElementById('result-confidence');
         const resultNotes = document.getElementById('result-notes');
         const resultRecommendation = document.getElementById('result-recommendation');
+        const shopLink = document.getElementById('shop-link');
+        const shareBtn = document.getElementById('share-btn');
 
-        // Camera Logic
+        let currentResultData = null;
+
+        // --- Camera Logic ---
         async function startCamera() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 video.srcObject = stream;
             } catch (err) {
                 console.error("Error accessing camera: ", err);
-                // Don't alert immediately, maybe user denied or no camera.
-                // Just show a placeholder or disable camera tab button if possible.
             }
         }
 
-        // Only start camera when tab is active to save resources
         document.getElementById('pills-camera-tab').addEventListener('shown.bs.tab', startCamera);
-        // Initial start if on camera tab
         if(document.getElementById('pills-camera').classList.contains('active')) {
             startCamera();
         }
 
+        // --- Loading & Error ---
         function showLoading(show) {
             loadingOverlay.style.visibility = show ? 'visible' : 'hidden';
             errorAlert.classList.add('d-none');
@@ -252,8 +294,10 @@
             errorAlert.classList.remove('d-none');
         }
 
+        // --- Rendering Results ---
         function renderResults(data) {
             console.log(data);
+            currentResultData = data; // Store for saving/sharing
             const profile = data.fragrance_profile;
 
             if (!profile || profile.error) {
@@ -261,11 +305,9 @@
                 return;
             }
 
-            // If we have a detected label from Roboflow, use it, otherwise use the name from scraping
             let name = profile.name;
             if (data.detected_labels && data.detected_labels.length > 0) {
-               // Prefer the full name from profile if available, else the label
-               if (profile.name == profile.query) { // If scraping didn't find a better title
+               if (profile.name == profile.query) {
                    name = data.detected_labels[0];
                }
             }
@@ -297,12 +339,10 @@
                     notesHtml += `<h5 class="mt-3 text-capitalize">${type}</h5>`;
                     notesHtml += `<div>`;
                     notes.forEach(note => {
-                        // Color code badges based on note type roughly?
                         let badgeClass = "bg-secondary";
                         if (type.toLowerCase().includes('top')) badgeClass = "bg-warning text-dark";
                         if (type.toLowerCase().includes('middle') || type.toLowerCase().includes('heart')) badgeClass = "bg-danger";
                         if (type.toLowerCase().includes('base')) badgeClass = "bg-dark";
-
                         notesHtml += `<span class="badge rounded-pill ${badgeClass} note-badge">${note}</span>`;
                     });
                     notesHtml += `</div>`;
@@ -312,23 +352,26 @@
             }
             resultNotes.innerHTML = notesHtml;
 
+            // Shop Link
+            shopLink.href = `https://www.google.com/search?q=${encodeURIComponent(name + ' perfume buy')}&tbm=shop`;
+
+            // Reset Save Button
+            updateSaveButtonState(name);
+
             resultsSection.classList.remove('d-none');
-            // Scroll to results
             resultsSection.scrollIntoView({ behavior: 'smooth' });
         }
 
-        // Capture Button
+        // --- Interaction Handlers ---
         captureBtn.addEventListener('click', async () => {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             const context = canvas.getContext('2d');
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
             const dataUrl = canvas.toDataURL('image/png');
-            
             handleIdentification(dataUrl);
         });
 
-        // Upload Button
         uploadBtn.addEventListener('click', () => {
             const file = fileInput.files[0];
             if (!file) {
@@ -342,11 +385,9 @@
             reader.readAsDataURL(file);
         });
 
-        // Search Button
         searchBtn.addEventListener('click', async () => {
             const query = searchInput.value.trim();
             if (!query) return;
-
             showLoading(true);
             try {
                 const response = await fetch('/api/search', {
@@ -354,9 +395,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ query: query })
                 });
-
                 const data = await response.json();
-                renderResults(data); // structure might need slight adjust if backend format differs
+                renderResults(data);
             } catch (error) {
                 console.error(error);
                 showError("Network error or server issue.");
@@ -374,20 +414,14 @@
                     body: JSON.stringify({ image: dataUrl }),
                 });
 
-                // If we get a 503 (Service Unavailable), it might be the API key missing
                 if (response.status === 503) {
                     const data = await response.json();
                     showError(data.error || "Service unavailable. Please try manual search.");
                     return;
                 }
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const data = await response.json();
                 renderResults(data);
-
             } catch (error) {
                 console.error('Error:', error);
                 showError("Could not identify perfume. Please try again or use manual search.");
@@ -395,6 +429,122 @@
                 showLoading(false);
             }
         }
+
+        // --- Share Feature ---
+        shareBtn.addEventListener('click', () => {
+            if (!currentResultData) return;
+            const name = resultName.textContent;
+            const rec = resultRecommendation.textContent;
+            const text = `Check out this perfume I found with ScentLens AI!\n\nName: ${name}\nRecommendation: ${rec}\n\nDiscover more at ScentLens AI!`;
+
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = shareBtn.innerHTML;
+                shareBtn.innerHTML = '<i class="bi bi-check"></i> Copied!';
+                setTimeout(() => shareBtn.innerHTML = originalText, 2000);
+            });
+        });
+
+        // --- Collection (History) Feature ---
+        function getCollection() {
+            return JSON.parse(localStorage.getItem('scentlens_collection')) || [];
+        }
+
+        function saveToCollection(data) {
+            const collection = getCollection();
+            const name = document.getElementById('result-name').textContent;
+            // Prevent duplicates
+            if (collection.some(item => item.name === name)) return;
+
+            const item = {
+                id: Date.now(),
+                name: name,
+                image: document.getElementById('result-image').src,
+                recommendation: document.getElementById('result-recommendation').textContent,
+                data: data // store full data if needed later
+            };
+            collection.push(item);
+            localStorage.setItem('scentlens_collection', JSON.stringify(collection));
+            renderCollection();
+            updateSaveButtonState(name);
+        }
+
+        function removeFromCollection(id) {
+            let collection = getCollection();
+            collection = collection.filter(item => item.id !== id);
+            localStorage.setItem('scentlens_collection', JSON.stringify(collection));
+            renderCollection();
+            if(currentResultData) updateSaveButtonState(document.getElementById('result-name').textContent);
+        }
+
+        function updateSaveButtonState(name) {
+            const collection = getCollection();
+            const isSaved = collection.some(item => item.name === name);
+            if (isSaved) {
+                saveCollectionBtn.innerHTML = '<i class="bi bi-heart-fill"></i> Saved';
+                saveCollectionBtn.classList.remove('btn-outline-success');
+                saveCollectionBtn.classList.add('btn-success');
+                saveCollectionBtn.disabled = true;
+            } else {
+                saveCollectionBtn.innerHTML = '<i class="bi bi-heart"></i> Save';
+                saveCollectionBtn.classList.remove('btn-success');
+                saveCollectionBtn.classList.add('btn-outline-success');
+                saveCollectionBtn.disabled = false;
+            }
+        }
+
+        function renderCollection() {
+            const collection = getCollection();
+            collectionGrid.innerHTML = '';
+
+            if (collection.length === 0) {
+                collectionGrid.innerHTML = `
+                    <div class="col text-center w-100 mt-5">
+                        <i class="bi bi-basket display-1 text-muted"></i>
+                        <p class="text-muted mt-3">Your collection is empty. Scan or search for perfumes to add them here.</p>
+                    </div>`;
+                return;
+            }
+
+            collection.forEach(item => {
+                const col = document.createElement('div');
+                col.className = 'col';
+                col.innerHTML = `
+                    <div class="card h-100 shadow-sm collection-item">
+                        <img src="${item.image}" class="card-img-top" alt="${item.name}" style="height: 200px; object-fit: contain; padding: 10px;">
+                        <div class="card-body">
+                            <h5 class="card-title">${item.name}</h5>
+                            <p class="card-text small text-muted">${item.recommendation.substring(0, 60)}...</p>
+                        </div>
+                        <div class="card-footer bg-white border-top-0 d-flex justify-content-between">
+                             <button class="btn btn-sm btn-outline-danger" onclick="removeFromCollection(${item.id})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                             <button class="btn btn-sm btn-primary" onclick='loadFromCollection(${JSON.stringify(item.data)})'>
+                                View
+                            </button>
+                        </div>
+                    </div>
+                `;
+                collectionGrid.appendChild(col);
+            });
+        }
+
+        // Global function to be called from onclick
+        window.removeFromCollection = removeFromCollection;
+        window.loadFromCollection = (data) => {
+            renderResults(data);
+             // Switch to first tab (or search tab?) to show result, actually results are outside tabs, but let's hide tabs?
+             // Or just scroll to results.
+             // Note: Results are shared view.
+             renderResults(data);
+        };
+
+        saveCollectionBtn.addEventListener('click', () => {
+            if (currentResultData) saveToCollection(currentResultData);
+        });
+
+        // Initialize Collection on Load
+        document.getElementById('pills-collection-tab').addEventListener('shown.bs.tab', renderCollection);
 
     </script>
 </body>
