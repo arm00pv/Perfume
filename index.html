@@ -9,16 +9,43 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --text-color: #212529;
+            --card-bg: #ffffff;
+            --navbar-bg: #ffffff;
+            --hero-gradient: linear-gradient(135deg, #6f42c1 0%, #a64bf4 100%);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --card-bg: #1e1e1e;
+            --navbar-bg: #1e1e1e;
+            --hero-gradient: linear-gradient(135deg, #4a148c 0%, #7b1fa2 100%);
+        }
+
         body {
-            background-color: #f8f9fa;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .navbar {
+            background-color: var(--navbar-bg) !important;
+            transition: background-color 0.3s;
+        }
+        .card {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            transition: background-color 0.3s;
         }
         .navbar-brand {
             font-weight: bold;
             color: #6f42c1 !important;
         }
         .hero-section {
-            background: linear-gradient(135deg, #6f42c1 0%, #a64bf4 100%);
+            background: var(--hero-gradient);
             color: white;
             padding: 3rem 0;
             margin-bottom: 2rem;
@@ -45,7 +72,7 @@
             transition: transform 0.2s;
             border: none;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            overflow: hidden; /* To contain the gradient background */
+            overflow: hidden;
             position: relative;
         }
         .result-card:hover {
@@ -69,6 +96,7 @@
         .note-badge {
             font-size: 0.9em;
             margin: 2px;
+            cursor: pointer; /* Indicating clickable */
         }
         .pyramid-level {
             text-align: center;
@@ -77,6 +105,9 @@
             border-radius: 8px;
             background: rgba(255,255,255,0.6);
         }
+        [data-theme="dark"] .pyramid-level {
+            background: rgba(0,0,0,0.6);
+        }
         .pyramid-label {
             font-weight: bold;
             font-size: 0.8em;
@@ -84,6 +115,9 @@
             color: #666;
             display: block;
             margin-bottom: 4px;
+        }
+        [data-theme="dark"] .pyramid-label {
+            color: #aaa;
         }
         .loading-overlay {
             position: fixed;
@@ -98,6 +132,9 @@
             z-index: 9999;
             visibility: hidden;
         }
+        [data-theme="dark"] .loading-overlay {
+            background: rgba(0,0,0,0.8);
+        }
         .nav-pills .nav-link.active {
             background-color: #6f42c1;
         }
@@ -111,12 +148,19 @@
         .collection-item:hover {
             transform: scale(1.02);
         }
+        .trending-badge {
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .trending-badge:hover {
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
 
     <!-- Navbar -->
-    <nav class="navbar navbar-light bg-white shadow-sm">
+    <nav class="navbar navbar-light shadow-sm">
         <div class="container">
             <a class="navbar-brand" href="#">
                 <i class="bi bi-flower1 me-2"></i>
@@ -196,6 +240,13 @@
                             <input type="text" id="search-input" class="form-control form-control-lg" placeholder="Enter perfume name (e.g. Dior Sauvage)">
                             <button class="btn btn-primary" type="button" id="search-btn">Search</button>
                         </div>
+                        <!-- Trending Section -->
+                        <div class="mt-3 text-center">
+                            <p class="text-muted small mb-2">Trending Now:</p>
+                            <div id="trending-container">
+                                <!-- Trending badges injected here -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -274,7 +325,7 @@
                                         </button>
                                     </div>
 
-                                    <div class="mb-3 p-2 bg-white bg-opacity-75 border border-light rounded shadow-sm">
+                                    <div class="mb-3 p-2 bg-white bg-opacity-75 border border-light rounded shadow-sm" style="backdrop-filter: blur(5px);">
                                         <div class="d-flex justify-content-between align-items-center mb-1">
                                             <strong>✨ AI Recommendation:</strong>
                                             <button class="btn btn-sm btn-link text-decoration-none" id="speak-btn" title="Read Aloud">
@@ -328,10 +379,25 @@
         </div>
     </div>
 
+    <!-- Ingredient Modal -->
+    <div class="modal fade" id="ingredientModal" tabindex="-1" aria-labelledby="ingredientModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="ingredientModalLabel">Note Information</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="ingredientModalBody">
+            ...
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // DOM Elements
+        // --- DOM Elements ---
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const captureBtn = document.getElementById('capture-btn');
@@ -345,6 +411,8 @@
         const collectionGrid = document.getElementById('collection-grid');
         const saveCollectionBtn = document.getElementById('save-collection-btn');
         const quizSubmitBtn = document.getElementById('quiz-submit-btn');
+        const trendingContainer = document.getElementById('trending-container');
+        const darkModeToggle = document.getElementById('dark-mode-toggle');
 
         // Results Elements
         const resultImage = document.getElementById('result-image');
@@ -360,7 +428,78 @@
         const scentAura = document.getElementById('scent-aura');
         const speakBtn = document.getElementById('speak-btn');
 
+        // Modals
+        const ingredientModal = new bootstrap.Modal(document.getElementById('ingredientModal'));
+        const ingredientModalLabel = document.getElementById('ingredientModalLabel');
+        const ingredientModalBody = document.getElementById('ingredientModalBody');
+
         let currentResultData = null;
+
+        // --- Data: Ingredient Dictionary ---
+        const ingredientDefinitions = {
+            "bergamot": "A fresh, citrusy scent extracted from the rind of the bergamot orange. Uplifting and complex.",
+            "lemon": "Bright, zesty, and clean. A classic top note that brings instant energy.",
+            "oud": "A rich, resinous, and dark wood scent. often described as sweet, smoky, and complex. Very luxurious.",
+            "vanilla": "Sweet, cozy, and comforting. Adds warmth and depth to fragrances.",
+            "musk": "Animalic, earthy, and skin-like. Used as a base note to fix the scent and add sensuality.",
+            "rose": "The classic floral scent. Can be powdery, fresh, or deep depending on the variety.",
+            "jasmine": "Rich, sweet, and narcotic floral scent. Intensely feminine and heady.",
+            "lavender": "Aromatic, herbal, and clean. Often found in fougère fragrances.",
+            "patchouli": "Earthy, woody, and dark. Adds depth and mystery.",
+            "amber": "Warm, resinous, and sweet. A fantasy accord created from resins and vanilla.",
+            "sandalwood": "Creamy, milky, and smooth wood scent. Very calming.",
+            "cedar": "Dry, woody, and sharp. Reminiscent of pencil shavings.",
+            "vetiver": "Dry, grassy, and earthy. Fresh yet deep.",
+            "pepper": "Spicy, sharp, and bracing. Adds a kick to top notes."
+        };
+
+        // --- Data: Trending Perfumes ---
+        const trendingPerfumes = [
+            "Dior Sauvage",
+            "Chanel No 5",
+            "Bleu de Chanel",
+            "Baccarat Rouge 540",
+            "Tom Ford Tobacco Vanille",
+            "YSL Black Opium"
+        ];
+
+        // --- Initialization ---
+        function init() {
+            // Trending
+            trendingContainer.innerHTML = trendingPerfumes.map(p =>
+                `<span class="badge rounded-pill bg-light text-dark border m-1 trending-badge" onclick="handleSearch('${p}')">${p}</span>`
+            ).join('');
+
+            // Dark Mode
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateDarkModeIcon(savedTheme);
+
+            // Camera (if on tab)
+            if(document.getElementById('pills-camera').classList.contains('active')) {
+                startCamera();
+            }
+        }
+
+        // --- Dark Mode Logic ---
+        darkModeToggle.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateDarkModeIcon(newTheme);
+        });
+
+        function updateDarkModeIcon(theme) {
+            const icon = darkModeToggle.querySelector('i');
+            if (theme === 'dark') {
+                icon.classList.remove('bi-moon');
+                icon.classList.add('bi-sun');
+            } else {
+                icon.classList.remove('bi-sun');
+                icon.classList.add('bi-moon');
+            }
+        }
 
         // --- Camera Logic ---
         async function startCamera() {
@@ -373,45 +512,26 @@
         }
 
         document.getElementById('pills-camera-tab').addEventListener('shown.bs.tab', startCamera);
-        if(document.getElementById('pills-camera').classList.contains('active')) {
-            startCamera();
-        }
-
-        // --- Loading & Error ---
-        function showLoading(show) {
-            loadingOverlay.style.visibility = show ? 'visible' : 'hidden';
-            errorAlert.classList.add('d-none');
-            resultsSection.classList.add('d-none');
-        }
-
-        function showError(msg) {
-            errorAlert.textContent = msg;
-            errorAlert.classList.remove('d-none');
-        }
 
         // --- Visuals & Audio ---
         function getScentGradient(notes) {
             const allNotes = JSON.stringify(notes).toLowerCase();
-
             if (allNotes.includes('lemon') || allNotes.includes('citrus') || allNotes.includes('bergamot')) {
-                return 'linear-gradient(135deg, #a8ff78 0%, #78ffd6 100%)'; // Fresh Green/Blue
+                return 'linear-gradient(135deg, #a8ff78 0%, #78ffd6 100%)';
             }
             if (allNotes.includes('rose') || allNotes.includes('floral') || allNotes.includes('jasmine')) {
-                return 'linear-gradient(135deg, #FF9A9E 0%, #FECFEF 99%, #FECFEF 100%)'; // Pink Floral
+                return 'linear-gradient(135deg, #FF9A9E 0%, #FECFEF 99%, #FECFEF 100%)';
             }
             if (allNotes.includes('oud') || allNotes.includes('wood') || allNotes.includes('amber')) {
-                return 'linear-gradient(135deg, #c31432 0%, #240b36 100%)'; // Deep Red/Purple (Warm)
+                return 'linear-gradient(135deg, #c31432 0%, #240b36 100%)';
             }
             if (allNotes.includes('vanilla') || allNotes.includes('sweet') || allNotes.includes('chocolate')) {
-                return 'linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%)'; // Warm White/Grey? Maybe Gold
-                // Let's try Gold
                 return 'linear-gradient(135deg, #FDC830 0%, #F37335 100%)';
             }
             if (allNotes.includes('water') || allNotes.includes('sea') || allNotes.includes('blue')) {
-                return 'linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%)'; // Ocean Blue
+                return 'linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%)';
             }
-
-            return 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'; // Default neutral
+            return 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)';
         }
 
         speakBtn.addEventListener('click', () => {
@@ -421,30 +541,49 @@
             window.speechSynthesis.speak(utterance);
         });
 
+        // --- Ingredient Deep Dive ---
+        window.showIngredient = (note) => {
+            const lowerNote = note.toLowerCase();
+            let definition = "No detailed information available for this ingredient.";
+
+            // Simple fuzzy match
+            for (const [key, value] of Object.entries(ingredientDefinitions)) {
+                if (lowerNote.includes(key)) {
+                    definition = value;
+                    break;
+                }
+            }
+
+            ingredientModalLabel.textContent = note;
+            ingredientModalBody.textContent = definition;
+            ingredientModal.show();
+        };
+
         // --- Quiz Logic ---
         quizSubmitBtn.addEventListener('click', () => {
             const vibe = document.getElementById('quiz-vibe').value;
-            const occasion = document.getElementById('quiz-occasion').value;
             const season = document.getElementById('quiz-season').value;
-
-            // Simple heuristic for recommendation
             let query = "";
             if (vibe === 'fresh') query = "Acqua di Gio";
             else if (vibe === 'floral') query = "Chanel No 5";
             else if (vibe === 'warm') query = "Dior Sauvage";
             else if (vibe === 'sweet') query = "Prada Candy";
-
-            // Adjust based on season/occasion roughly (mock logic)
             if (season === 'winter' && vibe === 'fresh') query = "Bleu de Chanel";
 
-            // Trigger search with the recommended perfume
             searchInput.value = query;
-            // Switch to search tab logic essentially
             handleSearch(query);
         });
 
-        async function handleSearch(query) {
+        // --- Interaction Handlers ---
+        searchBtn.addEventListener('click', () => {
+            const query = searchInput.value.trim();
+            if (!query) return;
+            handleSearch(query);
+        });
+
+        window.handleSearch = async (query) => {
             showLoading(true);
+            searchInput.value = query; // Sync input if triggered by badge
             try {
                 const response = await fetch('/api/search', {
                     method: 'POST',
@@ -459,106 +598,8 @@
             } finally {
                 showLoading(false);
             }
-        }
+        };
 
-        // --- Rendering Results ---
-        function renderResults(data) {
-            console.log(data);
-            currentResultData = data; // Store for saving/sharing
-            const profile = data.fragrance_profile;
-
-            if (!profile || profile.error) {
-                showError(profile ? profile.error : "Unknown error occurred.");
-                return;
-            }
-
-            let name = profile.name;
-            if (!name) name = data.search_query || "Unknown Perfume";
-
-            resultName.textContent = name;
-
-            // Source & Confidence
-            resultSource.textContent = data.source || "Manual Search";
-            if (data.raw_prediction && data.raw_prediction.predictions && data.raw_prediction.predictions.length > 0) {
-                const conf = (data.raw_prediction.predictions[0].confidence * 100).toFixed(1);
-                resultConfidence.textContent = `${conf}%`;
-            } else {
-                resultConfidence.textContent = "N/A";
-            }
-
-            // Display OCR Text
-            if (data.ocr_text && data.ocr_text.length > 0) {
-                resultOcrText.textContent = data.ocr_text.join(", ");
-                ocrContainer.classList.remove('d-none');
-            } else {
-                ocrContainer.classList.add('d-none');
-            }
-
-            // Image
-            if (profile.image_url) {
-                resultImage.src = profile.image_url;
-            } else {
-                resultImage.src = "https://via.placeholder.com/200?text=No+Image";
-            }
-
-            // Recommendation
-            resultRecommendation.textContent = profile.recommendation || "Explore this scent to see if it fits you!";
-
-            // Apply Scent Aura
-            if (profile.notes) {
-                scentAura.style.background = getScentGradient(profile.notes);
-            }
-
-            // Notes Pyramid Visualization
-            let notesHtml = '';
-            if (profile.notes) {
-                // Expected keys: "Top Notes", "Middle Notes" (or Heart), "Base Notes"
-                // We render them in order Top -> Middle -> Base
-                const order = ['Top Notes', 'Middle Notes', 'Base Notes'];
-
-                order.forEach(type => {
-                    // Find key that matches loosely
-                    const key = Object.keys(profile.notes).find(k => k.includes(type.split(' ')[0]));
-                    if (key && profile.notes[key]) {
-                        notesHtml += `
-                            <div class="pyramid-level">
-                                <span class="pyramid-label">${type}</span>
-                                <div>
-                        `;
-                        profile.notes[key].forEach(note => {
-                            notesHtml += `<span class="badge rounded-pill bg-secondary note-badge">${note}</span>`;
-                        });
-                        notesHtml += `</div></div>`;
-                    }
-                });
-
-                // Fallback for un-ordered notes if pyramid missing
-                if (notesHtml === '') {
-                     for (const [type, notes] of Object.entries(profile.notes)) {
-                        notesHtml += `<div class="pyramid-level"><span class="pyramid-label">${type}</span><div>`;
-                        notes.forEach(note => {
-                            notesHtml += `<span class="badge rounded-pill bg-secondary note-badge">${note}</span>`;
-                        });
-                        notesHtml += `</div></div>`;
-                    }
-                }
-
-            } else {
-                notesHtml = '<p>No specific notes found.</p>';
-            }
-            resultNotes.innerHTML = notesHtml;
-
-            // Shop Link
-            shopLink.href = `https://www.google.com/search?q=${encodeURIComponent(name + ' perfume buy')}&tbm=shop`;
-
-            // Reset Save Button
-            updateSaveButtonState(name);
-
-            resultsSection.classList.remove('d-none');
-            resultsSection.scrollIntoView({ behavior: 'smooth' });
-        }
-
-        // --- Interaction Handlers ---
         captureBtn.addEventListener('click', async () => {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
@@ -581,12 +622,6 @@
             reader.readAsDataURL(file);
         });
 
-        searchBtn.addEventListener('click', async () => {
-            const query = searchInput.value.trim();
-            if (!query) return;
-            handleSearch(query);
-        });
-
         async function handleIdentification(dataUrl) {
             showLoading(true);
             try {
@@ -595,7 +630,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ image: dataUrl }),
                 });
-
                 if (response.status === 503) {
                     const data = await response.json();
                     showError(data.error || "Service unavailable. Please try manual search.");
@@ -612,44 +646,107 @@
             }
         }
 
-        // --- Share Feature ---
-        shareBtn.addEventListener('click', () => {
-            if (!currentResultData) return;
-            const name = resultName.textContent;
-            const rec = resultRecommendation.textContent;
-            const text = `Check out this perfume I found with ScentLens AI!\n\nName: ${name}\nRecommendation: ${rec}\n\nDiscover more at ScentLens AI!`;
+        // --- Rendering Results ---
+        function renderResults(data) {
+            console.log(data);
+            currentResultData = data;
+            const profile = data.fragrance_profile;
 
-            navigator.clipboard.writeText(text).then(() => {
-                const originalText = shareBtn.innerHTML;
-                shareBtn.innerHTML = '<i class="bi bi-check"></i> Copied!';
-                setTimeout(() => shareBtn.innerHTML = originalText, 2000);
-            });
-        });
+            if (!profile || profile.error) {
+                showError(profile ? profile.error : "Unknown error occurred.");
+                return;
+            }
 
-        // --- Collection (History) Feature ---
-        function getCollection() {
-            return JSON.parse(localStorage.getItem('scentlens_collection')) || [];
+            let name = profile.name;
+            if (!name) name = data.search_query || "Unknown Perfume";
+
+            resultName.textContent = name;
+            resultSource.textContent = data.source || "Manual Search";
+
+            if (data.raw_prediction && data.raw_prediction.predictions && data.raw_prediction.predictions.length > 0) {
+                const conf = (data.raw_prediction.predictions[0].confidence * 100).toFixed(1);
+                resultConfidence.textContent = `${conf}%`;
+            } else {
+                resultConfidence.textContent = "N/A";
+            }
+
+            if (data.ocr_text && data.ocr_text.length > 0) {
+                resultOcrText.textContent = data.ocr_text.join(", ");
+                ocrContainer.classList.remove('d-none');
+            } else {
+                ocrContainer.classList.add('d-none');
+            }
+
+            if (profile.image_url) {
+                resultImage.src = profile.image_url;
+            } else {
+                resultImage.src = "https://via.placeholder.com/200?text=No+Image";
+            }
+
+            resultRecommendation.textContent = profile.recommendation || "Explore this scent to see if it fits you!";
+
+            if (profile.notes) {
+                scentAura.style.background = getScentGradient(profile.notes);
+            }
+
+            let notesHtml = '';
+            if (profile.notes) {
+                const order = ['Top Notes', 'Middle Notes', 'Base Notes'];
+                order.forEach(type => {
+                    const key = Object.keys(profile.notes).find(k => k.includes(type.split(' ')[0]));
+                    if (key && profile.notes[key]) {
+                        notesHtml += `
+                            <div class="pyramid-level">
+                                <span class="pyramid-label">${type}</span>
+                                <div>
+                        `;
+                        profile.notes[key].forEach(note => {
+                            notesHtml += `<span class="badge rounded-pill bg-secondary note-badge" onclick="showIngredient('${note}')">${note}</span>`;
+                        });
+                        notesHtml += `</div></div>`;
+                    }
+                });
+
+                if (notesHtml === '') {
+                     for (const [type, notes] of Object.entries(profile.notes)) {
+                        notesHtml += `<div class="pyramid-level"><span class="pyramid-label">${type}</span><div>`;
+                        notes.forEach(note => {
+                            notesHtml += `<span class="badge rounded-pill bg-secondary note-badge" onclick="showIngredient('${note}')">${note}</span>`;
+                        });
+                        notesHtml += `</div></div>`;
+                    }
+                }
+            } else {
+                notesHtml = '<p>No specific notes found.</p>';
+            }
+            resultNotes.innerHTML = notesHtml;
+
+            shopLink.href = `https://www.google.com/search?q=${encodeURIComponent(name + ' perfume buy')}&tbm=shop`;
+            updateSaveButtonState(name);
+
+            resultsSection.classList.remove('d-none');
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
         }
 
+        // --- Collection & Share ---
+        // ... (re-used from previous step, functions need to be present)
+        function getCollection() { return JSON.parse(localStorage.getItem('scentlens_collection')) || []; }
         function saveToCollection(data) {
             const collection = getCollection();
             const name = document.getElementById('result-name').textContent;
-            // Prevent duplicates
             if (collection.some(item => item.name === name)) return;
-
             const item = {
                 id: Date.now(),
                 name: name,
                 image: document.getElementById('result-image').src,
                 recommendation: document.getElementById('result-recommendation').textContent,
-                data: data // store full data if needed later
+                data: data
             };
             collection.push(item);
             localStorage.setItem('scentlens_collection', JSON.stringify(collection));
             renderCollection();
             updateSaveButtonState(name);
         }
-
         function removeFromCollection(id) {
             let collection = getCollection();
             collection = collection.filter(item => item.id !== id);
@@ -657,7 +754,6 @@
             renderCollection();
             if(currentResultData) updateSaveButtonState(document.getElementById('result-name').textContent);
         }
-
         function updateSaveButtonState(name) {
             const collection = getCollection();
             const isSaved = collection.some(item => item.name === name);
@@ -673,11 +769,9 @@
                 saveCollectionBtn.disabled = false;
             }
         }
-
         function renderCollection() {
             const collection = getCollection();
             collectionGrid.innerHTML = '';
-
             if (collection.length === 0) {
                 collectionGrid.innerHTML = `
                     <div class="col text-center w-100 mt-5">
@@ -686,7 +780,6 @@
                     </div>`;
                 return;
             }
-
             collection.forEach(item => {
                 const col = document.createElement('div');
                 col.className = 'col';
@@ -710,23 +803,35 @@
                 collectionGrid.appendChild(col);
             });
         }
-
-        // Global function to be called from onclick
         window.removeFromCollection = removeFromCollection;
-        window.loadFromCollection = (data) => {
-            renderResults(data);
-             // Switch to first tab (or search tab?) to show result, actually results are outside tabs, but let's hide tabs?
-             // Or just scroll to results.
-             // Note: Results are shared view.
-             renderResults(data);
-        };
-
-        saveCollectionBtn.addEventListener('click', () => {
-            if (currentResultData) saveToCollection(currentResultData);
+        window.loadFromCollection = (data) => { renderResults(data); };
+        saveCollectionBtn.addEventListener('click', () => { if (currentResultData) saveToCollection(currentResultData); });
+        shareBtn.addEventListener('click', () => {
+            if (!currentResultData) return;
+            const name = resultName.textContent;
+            const rec = resultRecommendation.textContent;
+            const text = `Check out this perfume I found with ScentLens AI!\n\nName: ${name}\nRecommendation: ${rec}\n\nDiscover more at ScentLens AI!`;
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = shareBtn.innerHTML;
+                shareBtn.innerHTML = '<i class="bi bi-check"></i> Copied!';
+                setTimeout(() => shareBtn.innerHTML = originalText, 2000);
+            });
         });
-
-        // Initialize Collection on Load
         document.getElementById('pills-collection-tab').addEventListener('shown.bs.tab', renderCollection);
+
+        // --- Common ---
+        function showLoading(show) {
+            loadingOverlay.style.visibility = show ? 'visible' : 'hidden';
+            errorAlert.classList.add('d-none');
+            resultsSection.classList.add('d-none');
+        }
+        function showError(msg) {
+            errorAlert.textContent = msg;
+            errorAlert.classList.remove('d-none');
+        }
+
+        // Init
+        init();
 
     </script>
 </body>

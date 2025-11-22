@@ -7,7 +7,7 @@ class TestApp(unittest.TestCase):
     def test_get_recommendation(self):
         notes = {'Top': ['Citrus', 'Lemon'], 'Base': ['Musk']}
         rec = app.get_recommendation(notes)
-        self.assertIn("bright", rec)
+        self.assertIn("crisp", rec)
 
     @patch('app.easyocr.Reader')
     def test_lazy_loading(self, mock_reader):

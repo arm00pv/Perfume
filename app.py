@@ -1,5 +1,6 @@
 import base64
 import os
+import uuid
 import requests
 from bs4 import BeautifulSoup
 from flask import Flask, request, jsonify, send_from_directory
@@ -243,7 +244,8 @@ def identify_perfume():
     except Exception as e:
         return jsonify({'error': f'Invalid image data: {e}'}), 400
 
-    image_path = os.path.join('uploads', 'captured_image.png')
+    filename = f"{uuid.uuid4()}.png"
+    image_path = os.path.join('uploads', filename)
     with open(image_path, 'wb') as f:
         f.write(image_data)
 
@@ -303,6 +305,13 @@ def identify_perfume():
         fragrance_profile = scrape_fragrantica(search_query)
     else:
         fragrance_profile = {'error': 'Could not identify perfume box or bottle.'}
+
+    # Clean up the uploaded file
+    try:
+        if os.path.exists(image_path):
+            os.remove(image_path)
+    except Exception as e:
+        print(f"Error deleting file {image_path}: {e}")
 
     return jsonify({
         'detected_labels': detected_labels,
