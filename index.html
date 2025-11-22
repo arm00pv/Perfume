@@ -100,7 +100,7 @@
     <div class="hero-section text-center">
         <div class="container">
             <h1 class="display-4">Discover Your Perfect Scent</h1>
-            <p class="lead">Use AI to identify perfumes and explore their scent profiles instantly.</p>
+            <p class="lead">Identify perfume bottles and boxes instantly with AI Vision & OCR.</p>
         </div>
     </div>
 
@@ -191,7 +191,8 @@
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div>
                                             <h3 class="card-title" id="result-name">Perfume Name</h3>
-                                            <p class="card-text text-muted" id="result-desc">AI Confidence: <span id="result-confidence">-</span></p>
+                                            <p class="card-text mb-1"><span class="badge bg-primary" id="result-source">Source: -</span></p>
+                                            <p class="card-text text-muted small" id="result-desc">AI Confidence: <span id="result-confidence">-</span></p>
                                         </div>
                                         <button class="btn btn-outline-success btn-sm" id="save-collection-btn" title="Save to Collection">
                                             <i class="bi bi-heart"></i> Save
@@ -200,6 +201,12 @@
 
                                     <div class="mb-3 p-2 bg-info bg-opacity-10 border border-info rounded">
                                         <strong>✨ AI Recommendation:</strong> <span id="result-recommendation">Loading...</span>
+                                    </div>
+
+                                    <!-- Extracted Text Display -->
+                                    <div id="ocr-container" class="mb-3 d-none">
+                                        <p class="mb-1 text-muted small"><strong><i class="bi bi-fonts"></i> Extracted Text:</strong></p>
+                                        <p class="small fst-italic text-secondary bg-light p-1 rounded" id="result-ocr-text"></p>
                                     </div>
 
                                     <div id="result-notes">
@@ -236,6 +243,7 @@
                 <span class="visually-hidden">Loading...</span>
             </div>
             <p class="mt-3 lead">Analyzing Scent Profile...</p>
+            <p class="small text-muted">Running AI Vision & Text Recognition...</p>
         </div>
     </div>
 
@@ -259,9 +267,12 @@
         // Results Elements
         const resultImage = document.getElementById('result-image');
         const resultName = document.getElementById('result-name');
+        const resultSource = document.getElementById('result-source');
         const resultConfidence = document.getElementById('result-confidence');
         const resultNotes = document.getElementById('result-notes');
         const resultRecommendation = document.getElementById('result-recommendation');
+        const resultOcrText = document.getElementById('result-ocr-text');
+        const ocrContainer = document.getElementById('ocr-container');
         const shopLink = document.getElementById('shop-link');
         const shareBtn = document.getElementById('share-btn');
 
@@ -306,20 +317,26 @@
             }
 
             let name = profile.name;
-            if (data.detected_labels && data.detected_labels.length > 0) {
-               if (profile.name == profile.query) {
-                   name = data.detected_labels[0];
-               }
-            }
+            // Name priority is handled by backend logic (search_query) usually, but we fallback here
+            if (!name) name = data.search_query || "Unknown Perfume";
 
             resultName.textContent = name;
 
-            // Confidence
+            // Source & Confidence
+            resultSource.textContent = data.source || "Manual Search";
             if (data.raw_prediction && data.raw_prediction.predictions && data.raw_prediction.predictions.length > 0) {
                 const conf = (data.raw_prediction.predictions[0].confidence * 100).toFixed(1);
                 resultConfidence.textContent = `${conf}%`;
             } else {
-                resultConfidence.textContent = "N/A (Manual Search)";
+                resultConfidence.textContent = "N/A";
+            }
+
+            // Display OCR Text if available
+            if (data.ocr_text && data.ocr_text.length > 0) {
+                resultOcrText.textContent = data.ocr_text.join(", ");
+                ocrContainer.classList.remove('d-none');
+            } else {
+                ocrContainer.classList.add('d-none');
             }
 
             // Image

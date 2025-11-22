@@ -4,3 +4,4 @@ beautifulsoup4
 requests
 ultralytics
 roboflow
+easyocr

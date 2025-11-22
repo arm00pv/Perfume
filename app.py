@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from roboflow import Roboflow
+import easyocr
 
 app = Flask(__name__)
 CORS(app)
@@ -12,6 +13,17 @@ CORS(app)
 # Create an 'uploads' directory if it doesn't exist
 if not os.path.exists('uploads'):
     os.makedirs('uploads')
+
+# Global variable for reader to allow lazy loading
+reader = None
+
+def get_reader():
+    global reader
+    if reader is None:
+        print("Initializing EasyOCR reader...")
+        reader = easyocr.Reader(['en'])
+        print("EasyOCR reader initialized.")
+    return reader
 
 @app.route('/')
 def index():
@@ -235,45 +247,71 @@ def identify_perfume():
     with open(image_path, 'wb') as f:
         f.write(image_data)
 
+    detected_labels = []
+    ocr_text = []
+    fragrance_profile = None
+    prediction = {}
+
+    # 1. Run Roboflow Inference
     try:
-        # Initialize Roboflow
         api_key = os.environ.get("ROBOFLOW_API_KEY")
-        if not api_key:
-            return jsonify({
-                'error': 'Roboflow API Key missing. Please use Manual Search.',
-                'detected_labels': [],
-                'fragrance_profile': None
-            }), 503
+        if api_key:
+            rf = Roboflow(api_key=api_key)
+            project = rf.workspace("zixen15").project("perfume-detection-5gyru")
+            model = project.version(3).model
+            prediction = model.predict(image_path, confidence=40, overlap=30).json()
 
-        rf = Roboflow(api_key=api_key)
-        project = rf.workspace("zixen15").project("perfume-detection-5gyru")
-        model = project.version(3).model
-
-        # Run inference
-        prediction = model.predict(image_path, confidence=40, overlap=30).json()
-
-        detected_labels = []
-        fragrance_profile = None
-
-        if prediction['predictions']:
-            # Sort by confidence and take the top one
-            top_prediction = sorted(prediction['predictions'], key=lambda x: x['confidence'], reverse=True)[0]
-            detected_labels = [p['class'] for p in prediction['predictions']]
-            perfume_name = top_prediction['class']
-
-            # Scrape Fragrantica with the identified perfume name
-            fragrance_profile = scrape_fragrantica(perfume_name)
+            if prediction['predictions']:
+                 detected_labels = [p['class'] for p in prediction['predictions']]
         else:
-            fragrance_profile = {'error': 'No perfume detected in the image.'}
-
-        return jsonify({
-            'detected_labels': detected_labels,
-            'fragrance_profile': fragrance_profile,
-            'raw_prediction': prediction
-        })
+            print("Roboflow API Key missing. Skipping object detection.")
 
     except Exception as e:
-        return jsonify({'error': f'AI Identification failed: {str(e)}'}), 500
+        print(f"Roboflow Error: {e}")
+
+    # 2. Run OCR Inference (Lazy Loaded)
+    try:
+        r = get_reader()
+        ocr_result = r.readtext(image_path)
+        # ocr_result is a list of tuples (bbox, text, prob)
+        ocr_text = [text for (_, text, prob) in ocr_result if prob > 0.3]
+        print(f"OCR Result: {ocr_text}")
+    except Exception as e:
+        print(f"OCR Error: {e}")
+
+    # 3. Smart Logic to Determine Search Query
+    search_query = ""
+    source = ""
+
+    # Priority 1: High confidence object detection
+    if detected_labels:
+        # Use the top detection
+        search_query = detected_labels[0]
+        source = "Visual Recognition"
+    # Priority 2: Use OCR if no object detected but text found
+    elif ocr_text:
+        # Clean text: remove short words, numbers, or generic terms if possible
+        # For now, join the longest/most relevant looking words
+        # Filter out very short strings
+        valid_words = [w for w in ocr_text if len(w) > 2]
+        if valid_words:
+            search_query = " ".join(valid_words[:4]) # Limit to first few words
+            source = "Text Analysis (OCR)"
+
+    # 4. Search Fragrantica
+    if search_query:
+        fragrance_profile = scrape_fragrantica(search_query)
+    else:
+        fragrance_profile = {'error': 'Could not identify perfume box or bottle.'}
+
+    return jsonify({
+        'detected_labels': detected_labels,
+        'ocr_text': ocr_text,
+        'search_query': search_query,
+        'source': source,
+        'fragrance_profile': fragrance_profile,
+        'raw_prediction': prediction
+    })
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
