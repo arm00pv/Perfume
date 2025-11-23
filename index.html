@@ -345,6 +345,23 @@
                                         <!-- Pyramid will be injected here -->
                                     </div>
 
+                                    <!-- AI Vision Debug Section -->
+                                    <div id="ai-vision-section" class="mt-3 d-none border-top pt-3">
+                                        <p class="small text-uppercase fw-bold text-primary mb-2"><i class="bi bi-eye"></i> AI Vision Analysis</p>
+                                        <div class="d-flex gap-3 align-items-center">
+                                            <div class="text-center">
+                                                <img id="vision-crop" src="" class="rounded border shadow-sm" style="height: 80px; width: auto; object-fit: cover;" alt="AI Seen">
+                                                <p class="small text-muted mt-1" style="font-size: 0.7em;">AI Input</p>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <p class="small mb-1">Extracted Palette:</p>
+                                                <div id="vision-palette" class="d-flex gap-1">
+                                                    <!-- Colors injected here -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div class="mt-4 border-top pt-3 d-flex gap-2">
                                         <a href="#" target="_blank" id="shop-link" class="btn btn-warning flex-grow-1 shadow-sm">
                                             <i class="bi bi-cart"></i> Shop on Google
@@ -423,6 +440,9 @@
         const resultRecommendation = document.getElementById('result-recommendation');
         const resultOcrText = document.getElementById('result-ocr-text');
         const ocrContainer = document.getElementById('ocr-container');
+        const aiVisionSection = document.getElementById('ai-vision-section');
+        const visionCrop = document.getElementById('vision-crop');
+        const visionPalette = document.getElementById('vision-palette');
         const shopLink = document.getElementById('shop-link');
         const shareBtn = document.getElementById('share-btn');
         const scentAura = document.getElementById('scent-aura');
@@ -675,6 +695,20 @@
                 ocrContainer.classList.remove('d-none');
             } else {
                 ocrContainer.classList.add('d-none');
+            }
+
+            // AI Vision Display
+            if (data.ai_debug && data.ai_debug.cropped_image) {
+                visionCrop.src = data.ai_debug.cropped_image;
+
+                if (data.ai_debug.dominant_colors) {
+                    visionPalette.innerHTML = data.ai_debug.dominant_colors.map(c =>
+                        `<div style="width: 25px; height: 25px; background-color: ${c}; border-radius: 50%; border: 1px solid #ccc;" title="${c}"></div>`
+                    ).join('');
+                }
+                aiVisionSection.classList.remove('d-none');
+            } else {
+                aiVisionSection.classList.add('d-none');
             }
 
             if (profile.image_url) {

@@ -3,47 +3,136 @@ import torchvision.transforms as transforms
 from torchvision import models
 from PIL import Image
 import torch.nn.functional as F
+import numpy as np
+from sklearn.cluster import KMeans
 import os
 
 class VisionEngine:
     def __init__(self):
-        print("Initializing Vision Engine (MobileNetV3)...")
-        # Load a lightweight, pre-trained model
-        self.model = models.mobilenet_v3_small(pretrained=True)
-        self.model.eval()
-        # Remove the classification head to get embeddings
-        self.model.classifier = torch.nn.Identity()
+        print("Initializing Vision Engine...")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.transform = transforms.Compose([
+        # 1. Embedding Model (MobileNetV3 Small)
+        self.embedder = models.mobilenet_v3_small(weights=models.MobileNet_V3_Small_Weights.DEFAULT)
+        self.embedder.eval()
+        self.embedder.classifier = torch.nn.Identity() # Remove classification head
+        self.embedder.to(self.device)
+
+        # 2. Object Detection Model (SSDLite MobileNetV3)
+        # We use this to find the bottle in the frame
+        self.detector = models.detection.ssdlite320_mobilenet_v3_large(weights=models.detection.SSDLite320_MobileNet_V3_Large_Weights.DEFAULT)
+        self.detector.eval()
+        self.detector.to(self.device)
+
+        # Transforms
+        self.embed_transform = transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
-        print("Vision Engine Ready.")
 
-    def get_embedding(self, image_path):
+        self.detect_transform = transforms.Compose([
+            transforms.ToTensor(),
+        ])
+
+        print(f"Vision Engine Ready on {self.device}.")
+
+    def detect_and_crop(self, image_path):
         """
-        Generates a feature vector (embedding) for an image.
+        Detects the most prominent object (likely bottle) and returns the cropped PIL image.
+        If no object is confident, returns the original image.
         """
         try:
-            image = Image.open(image_path).convert('RGB')
-            input_tensor = self.transform(image).unsqueeze(0)
+            original_image = Image.open(image_path).convert('RGB')
+            input_tensor = self.detect_transform(original_image).unsqueeze(0).to(self.device)
 
             with torch.no_grad():
-                embedding = self.model(input_tensor)
+                prediction = self.detector(input_tensor)[0]
 
-            # Normalize the embedding
-            return F.normalize(embedding, p=2, dim=1)
+            # COCO Class 44 is 'bottle'. But generic objects usually work for this context.
+            # We'll filter for high confidence detections.
+            boxes = prediction['boxes'].cpu().numpy()
+            scores = prediction['scores'].cpu().numpy()
+            labels = prediction['labels'].cpu().numpy()
+
+            best_box = None
+            max_score = 0.0
+
+            for box, score, label in zip(boxes, scores, labels):
+                if score > 0.3: # Confidence threshold
+                    # Priority to bottles (44), but accept others if high confidence (e.g. box)
+                    if label == 44 or score > 0.5:
+                        if score > max_score:
+                            max_score = score
+                            best_box = box
+
+            if best_box is not None:
+                # Crop with some padding
+                x1, y1, x2, y2 = best_box
+                w, h = original_image.size
+                pad = 10
+                x1 = max(0, x1 - pad)
+                y1 = max(0, y1 - pad)
+                x2 = min(w, x2 + pad)
+                y2 = min(h, y2 + pad)
+
+                cropped = original_image.crop((x1, y1, x2, y2))
+                print(f"Object detected! Cropped to {cropped.size}")
+                return cropped
+
+            print("No specific object detected. Using full image.")
+            return original_image
+
         except Exception as e:
-            print(f"Error generating embedding for {image_path}: {e}")
+            print(f"Detection error: {e}")
+            return Image.open(image_path).convert('RGB')
+
+    def get_embedding(self, image_input):
+        """
+        Generates a feature vector for an image (path or PIL Image).
+        """
+        try:
+            if isinstance(image_input, str):
+                image = Image.open(image_input).convert('RGB')
+            else:
+                image = image_input
+
+            input_tensor = self.embed_transform(image).unsqueeze(0).to(self.device)
+
+            with torch.no_grad():
+                embedding = self.embedder(input_tensor)
+
+            return F.normalize(embedding, p=2, dim=1).cpu()
+        except Exception as e:
+            print(f"Embedding error: {e}")
             return None
 
     def compute_similarity(self, emb1, emb2):
-        """
-        Computes Cosine Similarity between two embeddings.
-        Returns a float between 0 and 1.
-        """
         if emb1 is None or emb2 is None:
             return 0.0
-
         return F.cosine_similarity(emb1, emb2).item()
+
+    def extract_colors(self, image_input, k=3):
+        """
+        Extracts K dominant colors using K-Means.
+        Returns a list of hex strings.
+        """
+        try:
+            if isinstance(image_input, str):
+                image = Image.open(image_input).convert('RGB')
+            else:
+                image = image_input
+
+            # Resize for speed
+            image = image.resize((100, 100))
+            data = np.array(image).reshape(-1, 3)
+
+            kmeans = KMeans(n_clusters=k, n_init=5)
+            kmeans.fit(data)
+            colors = kmeans.cluster_centers_.astype(int)
+
+            hex_colors = ['#{:02x}{:02x}{:02x}'.format(r, g, b) for r, g, b in colors]
+            return hex_colors
+        except Exception as e:
+            print(f"Color extraction error: {e}")
+            return []

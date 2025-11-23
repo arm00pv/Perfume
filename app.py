@@ -7,6 +7,8 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import easyocr
 import re
+from io import BytesIO
+import json
 
 # Import our In-House Engines
 from vision import VisionEngine
@@ -261,6 +263,12 @@ def identify_perfume():
     source = ""
     status_message = ""
 
+    ai_debug = {
+        'cropped_image': None,
+        'best_match_image': None,
+        'dominant_colors': []
+    }
+
     # 1. OCR Scan
     try:
         r = get_reader()
@@ -273,42 +281,55 @@ def identify_perfume():
 
     # 2. Refined Search Query from OCR
     if ocr_text:
-        # Simple heuristic: longer words are more likely to be the brand/name
-        # Filter out "Eau", "De", "Toilette", "Parfum", "Vol", "ml"
         ignore_list = ['eau', 'de', 'toilette', 'parfum', 'vol', 'ml', 'spray', 'vaporisateur']
         valid_words = [w for w in ocr_text if len(w) > 2 and w.lower() not in ignore_list]
         if valid_words:
             search_query = " ".join(valid_words[:4])
             source = "OCR Analysis"
 
-    # 3. "The Automated Equation" - Visual Verification & Learning
+    # 3. In-House AI Visual Verification
     if search_query:
-        print(f"Potential Match found via OCR: {search_query}. Verifying visually...")
+        print(f"Verifying query: {search_query}...")
 
-        # A. Trigger Data Collector to "Learn" this scent (Download refs & embed)
-        # This makes the AI "look into the Internet" as requested
         collector = get_data_collector()
         vision = get_vision_engine()
 
-        # Get embeddings for the user's image
-        user_embedding = vision.get_embedding(image_path)
+        # A. Detect & Crop Object
+        cropped_img = vision.detect_and_crop(image_path)
 
-        # Fetch reference images from the web
-        ref_embeddings = collector.collect_and_learn(search_query)
+        # Convert cropped image to base64 for frontend display
+        buffered = BytesIO()
+        cropped_img.save(buffered, format="PNG")
+        ai_debug['cropped_image'] = "data:image/png;base64," + base64.b64encode(buffered.getvalue()).decode('utf-8')
 
-        # B. Compare
+        # B. Extract Colors
+        ai_debug['dominant_colors'] = vision.extract_colors(cropped_img)
+
+        # C. Embed & Compare
+        user_embedding = vision.get_embedding(cropped_img)
+        ref_data = collector.collect_and_learn(search_query)
+
         best_score = 0
-        if user_embedding is not None and ref_embeddings:
-            for ref_emb in ref_embeddings:
+        best_match_path = None
+
+        if user_embedding is not None and ref_data:
+            for ref_emb, ref_path in ref_data:
                 score = vision.compute_similarity(user_embedding, ref_emb)
                 if score > best_score:
                     best_score = score
+                    best_match_path = ref_path
 
             print(f"Visual Similarity Score: {best_score}")
 
-            if best_score > 0.6: # Threshold for "It looks similar"
+            if best_match_path:
+                # We can't serve local files easily without a route, so we'll just imply it via the scraper URL logic
+                # Or if we want to show the exact image matched, we'd need to serve it.
+                # Simplified: If match is high, we trust the result.
+                pass
+
+            if best_score > 0.6:
                 source = f"Visual AI Verified (Confidence: {best_score:.2f})"
-                status_message = "Visual match confirmed via automated web learning."
+                status_message = "Visual match confirmed via Knowledge Base."
             else:
                 source = f"OCR Only (Visual Confidence Low: {best_score:.2f})"
                 status_message = "Visual match uncertain, but text matches."
@@ -331,12 +352,13 @@ def identify_perfume():
         print(f"Error deleting file {image_path}: {e}")
 
     return jsonify({
-        'detected_labels': [search_query] if search_query else [], # Repurposing this field for frontend compatibility
+        'detected_labels': [search_query] if search_query else [],
         'ocr_text': ocr_text,
         'search_query': search_query,
         'source': source,
         'fragrance_profile': fragrance_profile,
-        'visual_confidence': status_message
+        'visual_confidence': status_message,
+        'ai_debug': ai_debug
     })
 
 if __name__ == '__main__':
