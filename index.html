@@ -374,8 +374,8 @@
             <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
                 <span class="visually-hidden">Loading...</span>
             </div>
-            <p class="mt-3 lead">Analyzing Scent Profile...</p>
-            <p class="small text-muted">Running AI Vision & Text Recognition...</p>
+            <p class="mt-3 lead">Analyzing & Learning...</p>
+            <p class="small text-muted" id="loading-text">Searching the visual web for matches...</p>
         </div>
     </div>
 
@@ -824,6 +824,23 @@
             loadingOverlay.style.visibility = show ? 'visible' : 'hidden';
             errorAlert.classList.add('d-none');
             resultsSection.classList.add('d-none');
+            if (show) {
+                 const msgs = [
+                     "Extracting visual features...",
+                     "Reading text labels...",
+                     "Searching global perfume database...",
+                     "Learning new scent profiles...",
+                     "Verifying visual match..."
+                 ];
+                 let i = 0;
+                 const textEl = document.getElementById('loading-text');
+                 textEl.textContent = msgs[0];
+                 const interval = setInterval(() => {
+                     i = (i + 1) % msgs.length;
+                     textEl.textContent = msgs[i];
+                     if(loadingOverlay.style.visibility === 'hidden') clearInterval(interval);
+                 }, 2000);
+            }
         }
         function showError(msg) {
             errorAlert.textContent = msg;
