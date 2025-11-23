@@ -137,3 +137,50 @@ class DataCollector:
         except:
             pass
         return None
+
+    def search_knowledge_base(self, query_embedding, threshold=0.7):
+        """
+        Iterates through the entire knowledge base to find the best visual match
+        for the given query embedding.
+
+        Returns:
+            (best_name, best_score, best_image_path) or None
+        """
+        print("Searching Knowledge Base for visual match...")
+        best_match = None
+        best_score = -1.0
+
+        # Iterate over all perfume folders
+        if not os.path.exists(self.kb_dir):
+            return None
+
+        for perfume_name in os.listdir(self.kb_dir):
+            folder_path = os.path.join(self.kb_dir, perfume_name)
+            if not os.path.isdir(folder_path):
+                continue
+
+            embedding_file = os.path.join(folder_path, 'embeddings.pt')
+            if not os.path.exists(embedding_file):
+                continue
+
+            try:
+                # Load embeddings for this perfume
+                data = torch.load(embedding_file)
+                for stored_emb, img_path in data:
+                    # Compute similarity
+                    score = self.vision.compute_similarity(query_embedding, stored_emb)
+                    if score > best_score:
+                        best_score = score
+                        # Convert directory name back to readable name (e.g., dior_sauvage -> Dior Sauvage)
+                        readable_name = perfume_name.replace('_', ' ').title()
+                        best_match = (readable_name, best_score, img_path)
+            except Exception as e:
+                print(f"Error reading cache for {perfume_name}: {e}")
+                continue
+
+        if best_match and best_match[1] >= threshold:
+            print(f"Visual Match Found: {best_match[0]} (Score: {best_match[1]:.2f})")
+            return best_match
+
+        print(f"No strong visual match found (Best: {best_score:.2f})")
+        return None

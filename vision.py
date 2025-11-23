@@ -136,3 +136,63 @@ class VisionEngine:
         except Exception as e:
             print(f"Color extraction error: {e}")
             return []
+
+    def analyze_color_psychology(self, hex_colors):
+        """
+        Maps a list of hex colors to scent archetypes/notes using basic color theory.
+        Returns a dict with predicted 'vibe' and 'notes'.
+        """
+        if not hex_colors:
+            return None
+
+        # Simple mapping of hue ranges/dominant channel to notes
+        scent_map = {
+            'red': {'vibe': 'Romantic & Spicy', 'notes': ['Rose', 'Berry', 'Pepper', 'Cinnamon']},
+            'blue': {'vibe': 'Fresh & Aquatic', 'notes': ['Sea Notes', 'Mint', 'Water', 'Blueberry']},
+            'green': {'vibe': 'Natural & Herbal', 'notes': ['Vetiver', 'Grass', 'Basil', 'Green Tea']},
+            'yellow': {'vibe': 'Bright & Citrusy', 'notes': ['Lemon', 'Bergamot', 'Yuzu', 'Honey']},
+            'orange': {'vibe': 'Warm & Energetic', 'notes': ['Orange', 'Amber', 'Ginger', 'Mandarin']},
+            'brown': {'vibe': 'Earthy & Woody', 'notes': ['Oud', 'Leather', 'Sandalwood', 'Tobacco']},
+            'purple': {'vibe': 'Mysterious & Floral', 'notes': ['Lavender', 'Plum', 'Iris', 'Violet']},
+            'pink': {'vibe': 'Sweet & Playful', 'notes': ['Peony', 'Candy', 'Raspberry', 'Vanilla']},
+            'black': {'vibe': 'Intense & Night', 'notes': ['Smoke', 'Leather', 'Black Pepper', 'Incense']},
+            'white': {'vibe': 'Clean & Minimalist', 'notes': ['White Musk', 'Jasmine', 'Cotton', 'Lily']}
+        }
+
+        # Count occurrences of archetypes based on the palette
+        counts = {}
+        for hex_code in hex_colors:
+            r = int(hex_code[1:3], 16)
+            g = int(hex_code[3:5], 16)
+            b = int(hex_code[5:7], 16)
+
+            # Very basic color classifier
+            category = 'white' # default
+
+            if r < 40 and g < 40 and b < 40: category = 'black'
+            elif r > 200 and g > 200 and b > 200: category = 'white'
+            elif r > g and r > b:
+                if g > 150: category = 'yellow'
+                elif g > 100: category = 'orange'
+                elif b > 150: category = 'pink'
+                else: category = 'red'
+            elif g > r and g > b:
+                category = 'green'
+            elif b > r and b > g:
+                if r > 100: category = 'purple'
+                else: category = 'blue'
+            elif r > 150 and g > 100 and b < 100:
+                category = 'brown'
+
+            if category not in counts: counts[category] = 0
+            counts[category] += 1
+
+        # Get dominant category
+        dominant = max(counts, key=counts.get)
+        result = scent_map.get(dominant, scent_map['white'])
+
+        return {
+            'dominant_color_name': dominant,
+            'vibe': result['vibe'],
+            'predicted_notes': result['notes']
+        }

@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+uploads/
+dataset/
+embeddings/
+verification/
+.pytest_cache/
+gcp_credentials.json

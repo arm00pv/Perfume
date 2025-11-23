@@ -683,6 +683,18 @@
             resultName.textContent = name;
             resultSource.textContent = data.source || "Manual Search";
 
+            // Dynamic badge color based on source
+            const sourceText = (data.source || "").toLowerCase();
+            if (sourceText.includes('visual')) {
+                resultSource.className = "badge bg-success";
+            } else if (sourceText.includes('synesthesia') || sourceText.includes('color')) {
+                resultSource.className = "badge bg-info text-dark";
+            } else if (sourceText.includes('ocr')) {
+                resultSource.className = "badge bg-warning text-dark";
+            } else {
+                resultSource.className = "badge bg-primary";
+            }
+
             if (data.raw_prediction && data.raw_prediction.predictions && data.raw_prediction.predictions.length > 0) {
                 const conf = (data.raw_prediction.predictions[0].confidence * 100).toFixed(1);
                 resultConfidence.textContent = `${conf}%`;

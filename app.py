@@ -287,45 +287,37 @@ def identify_perfume():
             search_query = " ".join(valid_words[:4])
             source = "OCR Analysis"
 
-    # 3. In-House AI Visual Verification
+    # 3. In-House AI Logic
+    collector = get_data_collector()
+    vision = get_vision_engine()
+
+    # A. Detect & Crop Object (Always do this for analysis)
+    cropped_img = vision.detect_and_crop(image_path)
+
+    # Convert cropped image to base64 for frontend display
+    buffered = BytesIO()
+    cropped_img.save(buffered, format="PNG")
+    ai_debug['cropped_image'] = "data:image/png;base64," + base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+    # B. Extract Colors
+    ai_debug['dominant_colors'] = vision.extract_colors(cropped_img)
+
+    # C. Get User Embedding
+    user_embedding = vision.get_embedding(cropped_img)
+
+    # D. Identification Pipeline
+
+    # Path 1: Text-Based ID (OCR -> Scrape -> Verify)
     if search_query:
-        print(f"Verifying query: {search_query}...")
-
-        collector = get_data_collector()
-        vision = get_vision_engine()
-
-        # A. Detect & Crop Object
-        cropped_img = vision.detect_and_crop(image_path)
-
-        # Convert cropped image to base64 for frontend display
-        buffered = BytesIO()
-        cropped_img.save(buffered, format="PNG")
-        ai_debug['cropped_image'] = "data:image/png;base64," + base64.b64encode(buffered.getvalue()).decode('utf-8')
-
-        # B. Extract Colors
-        ai_debug['dominant_colors'] = vision.extract_colors(cropped_img)
-
-        # C. Embed & Compare
-        user_embedding = vision.get_embedding(cropped_img)
+        print(f"Verifying text query: {search_query}...")
         ref_data = collector.collect_and_learn(search_query)
 
         best_score = 0
-        best_match_path = None
-
         if user_embedding is not None and ref_data:
             for ref_emb, ref_path in ref_data:
                 score = vision.compute_similarity(user_embedding, ref_emb)
                 if score > best_score:
                     best_score = score
-                    best_match_path = ref_path
-
-            print(f"Visual Similarity Score: {best_score}")
-
-            if best_match_path:
-                # We can't serve local files easily without a route, so we'll just imply it via the scraper URL logic
-                # Or if we want to show the exact image matched, we'd need to serve it.
-                # Simplified: If match is high, we trust the result.
-                pass
 
             if best_score > 0.6:
                 source = f"Visual AI Verified (Confidence: {best_score:.2f})"
@@ -333,16 +325,44 @@ def identify_perfume():
             else:
                 source = f"OCR Only (Visual Confidence Low: {best_score:.2f})"
                 status_message = "Visual match uncertain, but text matches."
-        else:
-             status_message = "Could not verify visually (network or embedding error)."
 
-    # 4. Search Fragrantica for Profile
-    if search_query:
         fragrance_profile = scrape_fragrantica(search_query)
         if fragrance_profile:
              fragrance_profile['status'] = status_message
-    else:
-        fragrance_profile = {'error': 'Could not identify perfume box or bottle.'}
+
+    # Path 2: Blind Visual Search (Reverse Image Search)
+    elif user_embedding is not None:
+        print("No OCR text found. Attempting Blind Visual Search...")
+        best_match = collector.search_knowledge_base(user_embedding, threshold=0.65)
+
+        if best_match:
+            name, score, _ = best_match
+            search_query = name
+            source = f"Blind Visual Match (Score: {score:.2f})"
+            status_message = f"Identified purely by bottle shape/style."
+            fragrance_profile = scrape_fragrantica(search_query)
+            if fragrance_profile:
+                fragrance_profile['status'] = status_message
+
+    # Path 3: Synesthesia AI (Color Psychology Fallback)
+    if not fragrance_profile or 'error' in fragrance_profile:
+        print("Identification failed. Falling back to Color Psychology.")
+        color_analysis = vision.analyze_color_psychology(ai_debug['dominant_colors'])
+
+        if color_analysis:
+            source = "Synesthesia AI (Color Analysis)"
+            status_message = "Exact match not found. Generating profile from bottle aesthetics."
+            fragrance_profile = {
+                'name': f"Mystery Scent ({color_analysis['dominant_color_name'].title()} Aura)",
+                'recommendation': f"Based on the {color_analysis['dominant_color_name']} hues, this scent likely has a {color_analysis['vibe']} character.",
+                'notes': {
+                    'Predicted Notes': color_analysis['predicted_notes']
+                },
+                'image_url': None,
+                'status': status_message
+            }
+        else:
+            fragrance_profile = {'error': 'Could not identify perfume box or bottle.'}
 
     # Clean up
     try:
