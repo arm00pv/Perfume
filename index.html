@@ -155,6 +155,16 @@
         .trending-badge:hover {
             transform: scale(1.05);
         }
+        /* Voice Search Animation */
+        .listening-animation {
+            animation: pulse-red 1.5s infinite;
+            color: red !important;
+        }
+        @keyframes pulse-red {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
     </style>
 </head>
 <body>
@@ -238,6 +248,7 @@
                     <div class="col-md-6">
                         <div class="input-group mb-3">
                             <input type="text" id="search-input" class="form-control form-control-lg" placeholder="Enter perfume name (e.g. Dior Sauvage)">
+                            <button class="btn btn-outline-secondary" type="button" id="voice-search-btn" title="Voice Search"><i class="bi bi-mic"></i></button>
                             <button class="btn btn-primary" type="button" id="search-btn">Search</button>
                         </div>
                         <!-- Trending Section -->
@@ -345,6 +356,14 @@
                                         <!-- Pyramid will be injected here -->
                                     </div>
 
+                                    <!-- Similar Perfumes Section -->
+                                    <div id="similar-perfumes-container" class="mt-4 pt-3 border-top d-none">
+                                        <p class="small text-uppercase fw-bold text-secondary mb-2"><i class="bi bi-stars"></i> You Might Also Like</p>
+                                        <div id="similar-perfumes-list" class="d-flex flex-wrap gap-2">
+                                            <!-- Similar items injected here -->
+                                        </div>
+                                    </div>
+
                                     <!-- AI Vision Debug Section -->
                                     <div id="ai-vision-section" class="mt-3 d-none border-top pt-3">
                                         <p class="small text-uppercase fw-bold text-primary mb-2"><i class="bi bi-eye"></i> AI Vision Analysis</p>
@@ -422,6 +441,7 @@
         const fileInput = document.getElementById('formFile');
         const searchBtn = document.getElementById('search-btn');
         const searchInput = document.getElementById('search-input');
+        const voiceSearchBtn = document.getElementById('voice-search-btn'); // Voice Search Button
         const resultsSection = document.getElementById('results-section');
         const errorAlert = document.getElementById('error-alert');
         const loadingOverlay = document.getElementById('loading-overlay');
@@ -447,6 +467,8 @@
         const shareBtn = document.getElementById('share-btn');
         const scentAura = document.getElementById('scent-aura');
         const speakBtn = document.getElementById('speak-btn');
+        const similarPerfumesContainer = document.getElementById('similar-perfumes-container');
+        const similarPerfumesList = document.getElementById('similar-perfumes-list');
 
         // Modals
         const ingredientModal = new bootstrap.Modal(document.getElementById('ingredientModal'));
@@ -499,6 +521,11 @@
             if(document.getElementById('pills-camera').classList.contains('active')) {
                 startCamera();
             }
+
+            // Check for voice support
+            if (!('webkitSpeechRecognition' in window)) {
+                voiceSearchBtn.style.display = 'none';
+            }
         }
 
         // --- Dark Mode Logic ---
@@ -532,6 +559,36 @@
         }
 
         document.getElementById('pills-camera-tab').addEventListener('shown.bs.tab', startCamera);
+
+        // --- Voice Search Logic ---
+        voiceSearchBtn.addEventListener('click', () => {
+            if ('webkitSpeechRecognition' in window) {
+                const recognition = new webkitSpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = "en-US";
+
+                recognition.onstart = () => {
+                    voiceSearchBtn.classList.add('listening-animation');
+                    searchInput.placeholder = "Listening...";
+                };
+
+                recognition.onend = () => {
+                    voiceSearchBtn.classList.remove('listening-animation');
+                    searchInput.placeholder = "Enter perfume name (e.g. Dior Sauvage)";
+                };
+
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    searchInput.value = transcript;
+                    handleSearch(transcript);
+                };
+
+                recognition.start();
+            } else {
+                alert("Voice search is not supported in this browser.");
+            }
+        });
 
         // --- Visuals & Audio ---
         function getScentGradient(notes) {
@@ -767,6 +824,16 @@
             }
             resultNotes.innerHTML = notesHtml;
 
+            // Similar Perfumes
+            if (profile.similars && profile.similars.length > 0) {
+                similarPerfumesList.innerHTML = profile.similars.map(sim =>
+                    `<button class="btn btn-sm btn-outline-info rounded-pill shadow-sm" onclick="handleSearch('${sim}')">${sim}</button>`
+                ).join('');
+                similarPerfumesContainer.classList.remove('d-none');
+            } else {
+                similarPerfumesContainer.classList.add('d-none');
+            }
+
             shopLink.href = `https://www.google.com/search?q=${encodeURIComponent(name + ' perfume buy')}&tbm=shop`;
             updateSaveButtonState(name);
 
@@ -868,9 +935,9 @@
         // --- Common ---
         function showLoading(show) {
             loadingOverlay.style.visibility = show ? 'visible' : 'hidden';
-            errorAlert.classList.add('d-none');
-            resultsSection.classList.add('d-none');
             if (show) {
+                 errorAlert.classList.add('d-none');
+                 resultsSection.classList.add('d-none');
                  const msgs = [
                      "Extracting visual features...",
                      "Reading text labels...",

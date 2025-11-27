@@ -4,10 +4,12 @@ import app
 
 class TestApp(unittest.TestCase):
 
-    def test_get_recommendation(self):
+    def test_get_recommendation_and_similars(self):
         notes = {'Top': ['Citrus', 'Lemon'], 'Base': ['Musk']}
-        rec = app.get_recommendation(notes)
-        self.assertIn("crisp", rec)
+        rec, similars = app.get_recommendation_and_similars(notes)
+        self.assertIn("clean", rec) # "clean" is in 'fresh' description
+        self.assertIsInstance(similars, list)
+        self.assertTrue(len(similars) > 0)
 
     @patch('app.easyocr.Reader')
     def test_lazy_loading(self, mock_reader):

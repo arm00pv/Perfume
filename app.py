@@ -9,6 +9,7 @@ import easyocr
 import re
 from io import BytesIO
 import json
+import random
 
 # Import our In-House Engines
 from vision import VisionEngine
@@ -50,10 +51,43 @@ def get_data_collector():
 def index():
     return send_from_directory('.', 'index.html')
 
-# --- Scraper Helpers (Keep existing Fragrantica logic) ---
-def get_recommendation(notes):
+# --- Recommendation Engine Data ---
+PERFUME_ARCHETYPES = {
+    'fresh': {
+        'desc': "clean, revitalizing, and full of energy",
+        'occasion': "casual daily wear, the gym, or hot summer days",
+        'similars': ["Acqua di Gio", "Dolce & Gabbana Light Blue", "Issey Miyake L'Eau d'Issey", "Davidoff Cool Water", "Versace Man Eau Fraiche"]
+    },
+    'floral': {
+        'desc': "classic, graceful, and purely feminine",
+        'occasion': "weddings, brunches, or daily elegance",
+        'similars': ["Gucci Bloom", "Marc Jacobs Daisy", "Viktor&Rolf Flowerbomb", "Dior J'adore", "Chloe Eau de Parfum"]
+    },
+    'warm': {
+        'desc': "mysterious, bold, and commanding",
+        'occasion': "making a statement at evening events or during colder months",
+        'similars': ["YSL Black Opium", "Tom Ford Tobacco Vanille", "Dior Sauvage", "Versace Eros", "Giorgio Armani Code"]
+    },
+    'sweet': {
+        'desc': "youthful, fun, and comforting",
+        'occasion': "casual outings or when you need a mood booster",
+        'similars': ["Prada Candy", "Ariana Grande Cloud", "Aquolina Pink Sugar", "Mugler Angel", "Lancome La Vie Est Belle"]
+    },
+    'aquatic': {
+        'desc': "crisp, oceanic, and refreshing",
+        'occasion': "summer vacations or when you crave a sea breeze",
+        'similars': ["Giorgio Armani Acqua di Gio", "Bvlgari Aqva Pour Homme", "Nautica Voyage", "Kenzo Homme"]
+    },
+    'wood': {
+        'desc': "grounded, earthy, and sophisticated",
+        'occasion': "the office or formal business meetings",
+        'similars': ["Terre d'Hermes", "Bleu de Chanel", "Creed Aventus", "Tom Ford Oud Wood"]
+    }
+}
+
+def analyze_notes(notes):
     """
-    Generates a creative recommendation based on scent notes.
+    Analyzes notes to determine the archetype.
     """
     all_notes = []
     for category in notes.values():
@@ -62,45 +96,35 @@ def get_recommendation(notes):
     all_notes_str = " ".join(all_notes)
 
     # Archetypes
-    is_fresh = any(x in all_notes_str for x in ['lemon', 'citrus', 'bergamot', 'lime', 'orange', 'fresh', 'water', 'sea'])
-    is_floral = any(x in all_notes_str for x in ['rose', 'jasmine', 'floral', 'lily', 'peony', 'lavender'])
-    is_warm = any(x in all_notes_str for x in ['oud', 'amber', 'musk', 'leather', 'spice', 'wood', 'tobacco', 'sandalwood'])
-    is_sweet = any(x in all_notes_str for x in ['vanilla', 'sweet', 'gourmand', 'chocolate', 'caramel', 'honey'])
+    scores = {
+        'fresh': 0, 'floral': 0, 'warm': 0, 'sweet': 0, 'aquatic': 0, 'wood': 0
+    }
+
+    if any(x in all_notes_str for x in ['lemon', 'citrus', 'bergamot', 'lime', 'orange']): scores['fresh'] += 1
+    if any(x in all_notes_str for x in ['rose', 'jasmine', 'lily', 'peony', 'lavender']): scores['floral'] += 1
+    if any(x in all_notes_str for x in ['oud', 'amber', 'musk', 'leather', 'spice', 'tobacco']): scores['warm'] += 1
+    if any(x in all_notes_str for x in ['vanilla', 'gourmand', 'chocolate', 'caramel', 'honey', 'sugar']): scores['sweet'] += 1
+    if any(x in all_notes_str for x in ['water', 'sea', 'ocean', 'marine', 'salt']): scores['aquatic'] += 1
+    if any(x in all_notes_str for x in ['wood', 'sandalwood', 'cedar', 'vetiver', 'pine', 'oak']): scores['wood'] += 1
+
+    # Return dominant archetype
+    best_match = max(scores, key=scores.get)
+    if scores[best_match] == 0: return 'fresh' # Default
+    return best_match
+
+def get_recommendation_and_similars(notes):
+    archetype = analyze_notes(notes)
+    data = PERFUME_ARCHETYPES.get(archetype, PERFUME_ARCHETYPES['fresh'])
 
     intro = "This fragrance profile suggests a scent that is "
-    desc = []
-    occasion = "It is likely best suited for "
+    full_text = intro + data['desc'] + ". It is likely best suited for " + data['occasion'] + "."
 
-    if is_fresh and is_floral:
-        desc.append("bright, uplifting, and elegantly blooming")
-        occasion += "daytime wear in spring or summer, perfect for a garden party or a breezy walk."
-    elif is_fresh and is_warm:
-        desc.append("crisp yet deeply grounded, balancing energy with sophistication")
-        occasion += "office wear or early autumn days where you want to feel professional yet approachable."
-    elif is_floral and is_sweet:
-        desc.append("playful, romantic, and invitingly delicious")
-        occasion += "date nights or cozy gatherings where you want to leave a memorable impression."
-    elif is_warm and is_sweet:
-        desc.append("rich, intoxicating, and comfortably luxurious")
-        occasion += "winter evenings, formal events, or nights out by the fire."
-    elif is_fresh:
-        desc.append("clean, revitalizing, and full of energy")
-        occasion += "casual daily wear, the gym, or hot summer days."
-    elif is_warm:
-        desc.append("mysterious, bold, and commanding")
-        occasion += "making a statement at evening events or during colder months."
-    elif is_floral:
-        desc.append("classic, graceful, and purely feminine")
-        occasion += "weddings, brunches, or daily elegance."
-    elif is_sweet:
-        desc.append("youthful, fun, and comforting")
-        occasion += "casual outings or when you need a mood booster."
-    else:
-        desc.append("complex and unique")
-        occasion += "versatile occasions, adapting to your personal style."
+    # Pick 3 random similars
+    similars = random.sample(data['similars'], min(3, len(data['similars'])))
 
-    full_text = intro + desc[0] + ". " + occasion
-    return full_text
+    return full_text, similars
+
+# --- Scraper Helpers (Keep existing Fragrantica logic) ---
 
 def scrape_fragrantica(perfume_name):
     """
@@ -125,7 +149,8 @@ def scrape_fragrantica(perfume_name):
         'name': perfume_name,
         'notes': {},
         'image_url': None,
-        'recommendation': None
+        'recommendation': None,
+        'similars': []
     }
 
     try:
@@ -179,7 +204,9 @@ def scrape_fragrantica(perfume_name):
                 notes[note_type] = note_list
 
         result_data['notes'] = notes
-        result_data['recommendation'] = get_recommendation(notes)
+        rec, sims = get_recommendation_and_similars(notes)
+        result_data['recommendation'] = rec
+        result_data['similars'] = sims
 
         return result_data
 
@@ -221,12 +248,13 @@ def get_mock_data(name):
             'Base Notes': ['Wood', 'Musk']
         }
 
-    recommendation = get_recommendation(notes)
+    rec, sims = get_recommendation_and_similars(notes)
     return {
         'name': name.title(),
         'notes': notes,
         'image_url': image_url,
-        'recommendation': recommendation + " (Note: This is a simulated result as live data was inaccessible.)"
+        'recommendation': rec + " (Note: This is a simulated result as live data was inaccessible.)",
+        'similars': sims
     }
 
 @app.route('/api/search', methods=['POST'])
@@ -352,6 +380,20 @@ def identify_perfume():
         if color_analysis:
             source = "Synesthesia AI (Color Analysis)"
             status_message = "Exact match not found. Generating profile from bottle aesthetics."
+
+            # Map color vibe to archetype
+            vibe = color_analysis.get('vibe', 'fresh')
+            # Simple mapping from vibe string to archetype key
+            archetype_key = 'fresh'
+            if 'romance' in vibe or 'floral' in vibe: archetype_key = 'floral'
+            elif 'bold' in vibe or 'warm' in vibe: archetype_key = 'warm'
+            elif 'sweet' in vibe: archetype_key = 'sweet'
+            elif 'aquatic' in vibe or 'fresh' in vibe: archetype_key = 'aquatic'
+            elif 'earthy' in vibe: archetype_key = 'wood'
+
+            # Get similars for this archetype
+            similars = PERFUME_ARCHETYPES[archetype_key]['similars']
+
             fragrance_profile = {
                 'name': f"Mystery Scent ({color_analysis['dominant_color_name'].title()} Aura)",
                 'recommendation': f"Based on the {color_analysis['dominant_color_name']} hues, this scent likely has a {color_analysis['vibe']} character.",
@@ -359,7 +401,8 @@ def identify_perfume():
                     'Predicted Notes': color_analysis['predicted_notes']
                 },
                 'image_url': None,
-                'status': status_message
+                'status': status_message,
+                'similars': similars
             }
         else:
             fragrance_profile = {'error': 'Could not identify perfume box or bottle.'}
