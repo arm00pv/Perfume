@@ -51,6 +51,14 @@ def get_data_collector():
 def index():
     return send_from_directory('.', 'index.html')
 
+@app.route('/manifest.json')
+def manifest():
+    return send_from_directory('.', 'manifest.json')
+
+@app.route('/sw.js')
+def service_worker():
+    return send_from_directory('.', 'sw.js')
+
 # --- Recommendation Engine Data ---
 PERFUME_ARCHETYPES = {
     'fresh': {
@@ -83,6 +91,23 @@ PERFUME_ARCHETYPES = {
         'occasion': "the office or formal business meetings",
         'similars': ["Terre d'Hermes", "Bleu de Chanel", "Creed Aventus", "Tom Ford Oud Wood"]
     }
+}
+
+INGREDIENT_DEFINITIONS = {
+    "bergamot": "A fresh, citrusy scent extracted from the rind of the bergamot orange. Uplifting and complex.",
+    "lemon": "Bright, zesty, and clean. A classic top note that brings instant energy.",
+    "oud": "A rich, resinous, and dark wood scent, often described as sweet, smoky, and complex. Very luxurious.",
+    "vanilla": "Sweet, cozy, and comforting. Adds warmth and depth to fragrances.",
+    "musk": "Animalic, earthy, and skin-like. Used as a base note to fix the scent and add sensuality.",
+    "rose": "The classic floral scent. Can be powdery, fresh, or deep depending on the variety.",
+    "jasmine": "Rich, sweet, and narcotic floral scent. Intensely feminine and heady.",
+    "lavender": "Aromatic, herbal, and clean. Often found in fougère fragrances.",
+    "patchouli": "Earthy, woody, and dark. Adds depth and mystery.",
+    "amber": "Warm, resinous, and sweet. A fantasy accord created from resins and vanilla.",
+    "sandalwood": "Creamy, milky, and smooth wood scent. Very calming.",
+    "cedar": "Dry, woody, and sharp. Reminiscent of pencil shavings.",
+    "vetiver": "Dry, grassy, and earthy. Fresh yet deep.",
+    "pepper": "Spicy, sharp, and bracing. Adds a kick to top notes."
 }
 
 def analyze_notes(notes):
@@ -123,6 +148,41 @@ def get_recommendation_and_similars(notes):
     similars = random.sample(data['similars'], min(3, len(data['similars'])))
 
     return full_text, similars
+
+def chat_response(message):
+    message = message.lower()
+
+    # 1. Ingredient Definition
+    for ing, definition in INGREDIENT_DEFINITIONS.items():
+        if ing in message and ("what is" in message or "define" in message or "about" in message or "mean" in message):
+             return f"**{ing.title()}**: {definition}"
+
+    # 2. Recommendations
+    if "recommend" in message or "suggest" in message or "looking for" in message:
+        for arch, data in PERFUME_ARCHETYPES.items():
+            if arch in message:
+                return f"For a **{arch}** vibe, I recommend: " + ", ".join(data['similars'][:3]) + ". It's perfect for " + data['occasion'] + "."
+        return "I can suggest perfumes based on vibes! Try asking for 'fresh', 'floral', 'warm', 'sweet', or 'woody' recommendations."
+
+    # 3. Mixing
+    if "mix" in message or "layer" in message:
+        return "Layering is great! A general rule: **Heavier scents (Woods, Oud, Vanilla)** go on first as a base, and **Lighter scents (Citrus, Floral)** go on top. Try mixing a simple Vanilla with a Citrus for a 'Creamsicle' vibe!"
+
+    # 4. Greetings / Help
+    if "hello" in message or "hi" in message:
+        return "Hello! I'm your AI Scent Consultant. Ask me about ingredients (e.g., 'What is Oud?'), recommendations (e.g., 'Recommend a warm scent'), or layering tips!"
+
+    # 5. Default
+    return "I'm not sure about that specific term yet, but I'm learning! You can ask me about ingredients like *Oud*, *Bergamot*, or *Vetiver*."
+
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    data = request.get_json()
+    msg = data.get('message', '')
+    if not msg:
+        return jsonify({'error': 'Empty message'}), 400
+    response = chat_response(msg)
+    return jsonify({'response': response})
 
 # --- Scraper Helpers (Keep existing Fragrantica logic) ---
 
@@ -424,5 +484,5 @@ def identify_perfume():
         'ai_debug': ai_debug
     })
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True, port=5000)

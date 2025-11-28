@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ScentLens AI</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#6f42c1">
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
@@ -165,6 +167,30 @@
             50% { transform: scale(1.2); }
             100% { transform: scale(1); }
         }
+        /* Chat Styles */
+        .chat-message {
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 15px;
+            margin-bottom: 10px;
+            font-size: 0.95em;
+        }
+        .chat-user {
+            background-color: #6f42c1;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+        .chat-bot {
+            background-color: #e9ecef;
+            color: #212529;
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+        }
+        [data-theme="dark"] .chat-bot {
+            background-color: #333;
+            color: #e0e0e0;
+        }
     </style>
 </head>
 <body>
@@ -202,6 +228,9 @@
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="pills-search-tab" data-bs-toggle="pill" data-bs-target="#pills-search" type="button" role="tab"><i class="bi bi-search"></i> Manual Search</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="pills-chat-tab" data-bs-toggle="pill" data-bs-target="#pills-chat" type="button" role="tab"><i class="bi bi-chat-dots"></i> AI Chat</button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="pills-quiz-tab" data-bs-toggle="pill" data-bs-target="#pills-quiz" type="button" role="tab"><i class="bi bi-magic"></i> Scent Quiz</button>
@@ -256,6 +285,32 @@
                             <p class="text-muted small mb-2">Trending Now:</p>
                             <div id="trending-container">
                                 <!-- Trending badges injected here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Tab -->
+            <div class="tab-pane fade" id="pills-chat" role="tabpanel">
+                <div class="row justify-content-center">
+                    <div class="col-md-8">
+                        <div class="card shadow-sm" style="height: 500px;">
+                            <div class="card-header bg-white border-bottom-0 d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="bi bi-robot"></i> Scent Consultant</h5>
+                                <span class="badge bg-success rounded-pill">Online</span>
+                            </div>
+                            <div class="card-body overflow-auto d-flex flex-column" id="chat-history" style="background: var(--bg-color);">
+                                <!-- Messages injected here -->
+                                <div class="chat-message chat-bot shadow-sm">
+                                    Hello! I'm your AI Scent Consultant. Ask me about ingredients (e.g. "What is Oud?"), recommendations, or layering tips!
+                                </div>
+                            </div>
+                            <div class="card-footer bg-white">
+                                <div class="input-group">
+                                    <input type="text" id="chat-input" class="form-control" placeholder="Ask something...">
+                                    <button class="btn btn-primary" id="chat-send-btn"><i class="bi bi-send"></i></button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -441,7 +496,7 @@
         const fileInput = document.getElementById('formFile');
         const searchBtn = document.getElementById('search-btn');
         const searchInput = document.getElementById('search-input');
-        const voiceSearchBtn = document.getElementById('voice-search-btn'); // Voice Search Button
+        const voiceSearchBtn = document.getElementById('voice-search-btn');
         const resultsSection = document.getElementById('results-section');
         const errorAlert = document.getElementById('error-alert');
         const loadingOverlay = document.getElementById('loading-overlay');
@@ -450,6 +505,11 @@
         const quizSubmitBtn = document.getElementById('quiz-submit-btn');
         const trendingContainer = document.getElementById('trending-container');
         const darkModeToggle = document.getElementById('dark-mode-toggle');
+
+        // Chat Elements
+        const chatInput = document.getElementById('chat-input');
+        const chatSendBtn = document.getElementById('chat-send-btn');
+        const chatHistory = document.getElementById('chat-history');
 
         // Results Elements
         const resultImage = document.getElementById('result-image');
@@ -477,7 +537,7 @@
 
         let currentResultData = null;
 
-        // --- Data: Ingredient Dictionary ---
+        // --- Data: Ingredient Dictionary (Client-Side Fallback) ---
         const ingredientDefinitions = {
             "bergamot": "A fresh, citrusy scent extracted from the rind of the bergamot orange. Uplifting and complex.",
             "lemon": "Bright, zesty, and clean. A classic top note that brings instant energy.",
@@ -526,6 +586,17 @@
             if (!('webkitSpeechRecognition' in window)) {
                 voiceSearchBtn.style.display = 'none';
             }
+
+            // Service Worker
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/sw.js').then(reg => {
+                        console.log('SW registered: ', reg);
+                    }).catch(err => {
+                        console.log('SW registration failed: ', err);
+                    });
+                });
+            }
         }
 
         // --- Dark Mode Logic ---
@@ -559,6 +630,47 @@
         }
 
         document.getElementById('pills-camera-tab').addEventListener('shown.bs.tab', startCamera);
+
+        // --- Chat Logic ---
+        async function sendChatMessage() {
+            const msg = chatInput.value.trim();
+            if (!msg) return;
+
+            // User Message
+            addChatMessage(msg, 'user');
+            chatInput.value = '';
+            chatInput.disabled = true;
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                });
+                const data = await response.json();
+                addChatMessage(data.response, 'bot');
+            } catch (error) {
+                console.error(error);
+                addChatMessage("Sorry, I'm having trouble connecting to the server.", 'bot');
+            } finally {
+                chatInput.disabled = false;
+                chatInput.focus();
+            }
+        }
+
+        function addChatMessage(text, sender) {
+            const div = document.createElement('div');
+            div.className = `chat-message chat-${sender} shadow-sm`;
+            // Simple markdown parsing for bold
+            div.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            chatHistory.appendChild(div);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        chatSendBtn.addEventListener('click', sendChatMessage);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendChatMessage();
+        });
 
         // --- Voice Search Logic ---
         voiceSearchBtn.addEventListener('click', () => {

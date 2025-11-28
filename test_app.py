@@ -27,5 +27,19 @@ class TestApp(unittest.TestCase):
         app.get_reader()
         mock_reader.assert_called_once()
 
+    def test_chat_response(self):
+        # Test Definition
+        resp = app.chat_response("What is Oud?")
+        self.assertIn("resinous", resp.lower())
+
+        # Test Recommendation
+        resp = app.chat_response("Recommend a fresh scent")
+        self.assertIn("recommend", resp.lower())
+        self.assertIn("fresh", resp.lower())
+
+        # Test Mixing
+        resp = app.chat_response("Can I mix rose and oud?")
+        self.assertIn("layering", resp.lower())
+
 if __name__ == '__main__':
     unittest.main()

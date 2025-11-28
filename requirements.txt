@@ -7,3 +7,5 @@ torchvision
 easyocr
 scikit-learn
 numpy
+Pillow
+gunicorn
