@@ -213,10 +213,28 @@
         <div class="container">
             <h1 class="display-4">Discover Your Perfect Scent</h1>
             <p class="lead">Identify perfume bottles and boxes instantly with AI Vision & OCR.</p>
+            <div class="mt-4" id="quick-moods">
+                <span class="text-white-50 small d-block mb-2">Quick Mood Picks:</span>
+                <button class="btn btn-sm btn-light rounded-pill px-3 m-1 shadow-sm" onclick="handleMood('fresh')">🌿 Fresh</button>
+                <button class="btn btn-sm btn-light rounded-pill px-3 m-1 shadow-sm" onclick="handleMood('floral')">🌹 Romantic</button>
+                <button class="btn btn-sm btn-light rounded-pill px-3 m-1 shadow-sm" onclick="handleMood('warm')">🔥 Bold</button>
+                <button class="btn btn-sm btn-light rounded-pill px-3 m-1 shadow-sm" onclick="handleMood('sweet')">🍬 Sweet</button>
+                <button class="btn btn-sm btn-outline-light rounded-pill px-3 m-1" onclick="handleSurprise()"><i class="bi bi-dice-3"></i> Surprise Me</button>
+            </div>
         </div>
     </div>
 
     <div class="container">
+
+        <!-- Seasonal Spotlight -->
+        <div id="seasonal-spotlight" class="mb-4 d-none">
+            <div class="d-flex justify-content-between align-items-center mb-3 px-2">
+                <h5 class="text-secondary fw-bold mb-0" id="season-title"><i class="bi bi-calendar-event"></i> Seasonal Picks</h5>
+            </div>
+            <div class="row row-cols-1 row-cols-md-3 g-3" id="season-items">
+                <!-- Injected via JS -->
+            </div>
+        </div>
 
         <!-- Navigation Tabs -->
         <ul class="nav nav-pills mb-4 justify-content-center" id="pills-tab" role="tablist">
@@ -645,6 +663,9 @@
 
         // --- Initialization ---
         function init() {
+            // Seasonal
+            initSeasonal();
+
             // Trending
             trendingContainer.innerHTML = trendingPerfumes.map(p =>
                 `<span class="badge rounded-pill bg-light text-dark border m-1 trending-badge" onclick="handleSearch('${p}')">${p}</span>`
@@ -675,6 +696,105 @@
                     });
                 });
             }
+        }
+
+        // --- New Feature Logic ---
+        function handleMood(mood) {
+            // Switch to search tab
+            const tab = new bootstrap.Tab(document.getElementById('pills-search-tab'));
+            tab.show();
+
+            // Set input and search
+            let query = "";
+            if(mood === 'fresh') query = "Acqua di Gio";
+            else if(mood === 'floral') query = "Gucci Bloom";
+            else if(mood === 'warm') query = "Tom Ford Tobacco Vanille";
+            else if(mood === 'sweet') query = "Prada Candy";
+            else if(mood === 'party') query = "Versace Eros";
+            else if(mood === 'bold') query = "Dior Sauvage";
+
+            searchInput.value = query;
+            handleSearch(query);
+        }
+
+        function handleSurprise() {
+            const allPerfumes = [...trendingPerfumes, "Creed Aventus", "Le Labo Santal 33", "Maison Francis Kurkdjian Baccarat Rouge 540", "YSL Libre", "Giorgio Armani Si"];
+            const random = allPerfumes[Math.floor(Math.random() * allPerfumes.length)];
+
+            const tab = new bootstrap.Tab(document.getElementById('pills-search-tab'));
+            tab.show();
+
+            searchInput.value = random;
+            handleSearch(random);
+        }
+
+        function initSeasonal() {
+            const month = new Date().getMonth(); // 0-11
+            let season = "";
+            let title = "";
+            let items = [];
+
+            // Simple Season Logic (Northern Hemisphere)
+            if(month >= 11 || month <= 1) { // Dec, Jan, Feb
+                season = "winter";
+                title = "❄️ Winter Warmers";
+                items = [
+                    { name: "Tom Ford Tobacco Vanille", desc: "Cozy and spicy.", img: "https://via.placeholder.com/100?text=TF" },
+                    { name: "Spicebomb Extreme", desc: "Explosive warmth.", img: "https://via.placeholder.com/100?text=SB" },
+                    { name: "YSL Black Opium", desc: "Addictive coffee.", img: "https://via.placeholder.com/100?text=YSL" }
+                ];
+            } else if (month >= 2 && month <= 4) { // Mar, Apr, May
+                season = "spring";
+                title = "🌸 Spring Awakening";
+                items = [
+                    { name: "Gucci Bloom", desc: "Pure floral joy.", img: "https://via.placeholder.com/100?text=Gucci" },
+                    { name: "Marc Jacobs Daisy", desc: "Fresh and feminine.", img: "https://via.placeholder.com/100?text=Daisy" },
+                    { name: "Green Irish Tweed", desc: "Crisp countryside.", img: "https://via.placeholder.com/100?text=Creed" }
+                ];
+            } else if (month >= 5 && month <= 7) { // Jun, Jul, Aug
+                season = "summer";
+                title = "☀️ Summer Essentials";
+                items = [
+                    { name: "Acqua di Gio", desc: "The ocean standard.", img: "https://via.placeholder.com/100?text=AdG" },
+                    { name: "Dolce & Gabbana Light Blue", desc: "Mediterranean breeze.", img: "https://via.placeholder.com/100?text=D&G" },
+                    { name: "Versace Man Eau Fraiche", desc: "Icy citrus.", img: "https://via.placeholder.com/100?text=Versace" }
+                ];
+            } else { // Sep, Oct, Nov
+                season = "fall";
+                title = "🍂 Autumn Vibes";
+                items = [
+                    { name: "Maison Margiela Jazz Club", desc: "Boozy and smooth.", img: "https://via.placeholder.com/100?text=Jazz" },
+                    { name: "Terre d'Hermes", desc: "Earthy orange.", img: "https://via.placeholder.com/100?text=Hermes" },
+                    { name: "Angels' Share", desc: "Cognac sweetness.", img: "https://via.placeholder.com/100?text=Kilian" }
+                ];
+            }
+
+            document.getElementById('season-title').innerHTML = title;
+            const container = document.getElementById('season-items');
+            container.innerHTML = items.map(item => `
+                <div class="col">
+                    <div class="card h-100 shadow-sm border-0" style="background: var(--bg-color); cursor:pointer;" onclick="clickSeasonal('${item.name}')">
+                        <div class="card-body p-2 d-flex align-items-center">
+                            <div class="rounded-circle bg-white shadow-sm p-1 me-2" style="width:40px;height:40px;display:flex;justify-content:center;align-items:center;">
+                                <i class="bi bi-star-fill text-warning"></i>
+                            </div>
+                            <div>
+                                <h6 class="card-title mb-0 small fw-bold text-truncate">${item.name}</h6>
+                                <p class="card-text small text-muted mb-0" style="font-size: 0.75em;">${item.desc}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('seasonal-spotlight').classList.remove('d-none');
+        }
+
+        function clickSeasonal(name) {
+            const tab = new bootstrap.Tab(document.getElementById('pills-search-tab'));
+            tab.show();
+            searchInput.value = name;
+            handleSearch(name);
         }
 
         // --- Mode Switching ---
