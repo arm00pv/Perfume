@@ -484,5 +484,102 @@ def identify_perfume():
         'ai_debug': ai_debug
     })
 
+@app.route('/api/mix', methods=['POST'])
+def mix_perfumes():
+    data = request.get_json()
+    p1_name = data.get('perfume1')
+    p2_name = data.get('perfume2')
+
+    if not p1_name or not p2_name:
+        return jsonify({'error': 'Two perfume names required'}), 400
+
+    # Scrape both
+    p1_data = scrape_fragrantica(p1_name)
+    p2_data = scrape_fragrantica(p2_name)
+
+    # Combine Notes
+    combined_notes = {}
+    all_keys = set(list(p1_data.get('notes', {}).keys()) + list(p2_data.get('notes', {}).keys()))
+
+    for k in all_keys:
+        n1 = p1_data.get('notes', {}).get(k, [])
+        n2 = p2_data.get('notes', {}).get(k, [])
+        # Interleave notes for a balanced mix representation
+        combined = list(set(n1 + n2))
+        combined_notes[k] = combined[:6] # Limit to 6 to prevent overflow
+
+    # Analyze Resulting Archetype
+    archetype = analyze_notes(combined_notes)
+    arch_data = PERFUME_ARCHETYPES.get(archetype, PERFUME_ARCHETYPES['fresh'])
+
+    # Generate Description
+    description = (
+        f"A unique fusion of **{p1_data['name']}** and **{p2_data['name']}**. "
+        f"The combination creates a **{archetype.upper()}** profile: {arch_data['desc']}. "
+        f"This custom blend would be perfect for {arch_data['occasion']}."
+    )
+
+    return jsonify({
+        'name': f"{p1_data['name']} x {p2_data['name']}",
+        'description': description,
+        'notes': combined_notes,
+        'image1': p1_data.get('image_url'),
+        'image2': p2_data.get('image_url')
+    })
+
+@app.route('/api/vibe_check', methods=['POST'])
+def vibe_check():
+    data = request.get_json()
+    if 'image' not in data:
+        return jsonify({'error': 'No image data found'}), 400
+
+    try:
+        header, encoded = data['image'].split(',', 1)
+        image_data = base64.b64decode(encoded)
+    except Exception as e:
+        return jsonify({'error': f'Invalid image data: {e}'}), 400
+
+    filename = f"vibe_{uuid.uuid4()}.png"
+    image_path = os.path.join('uploads', filename)
+    with open(image_path, 'wb') as f:
+        f.write(image_data)
+
+    try:
+        vision = get_vision_engine()
+        # Crop to center or detect object (using detect_and_crop is fine as it falls back to full image)
+        cropped_img = vision.detect_and_crop(image_path)
+
+        # Extract Colors & Vibe
+        colors = vision.extract_colors(cropped_img, k=4)
+        analysis = vision.analyze_color_psychology(colors)
+
+        if not analysis:
+            return jsonify({'error': 'Could not analyze vibe'}), 500
+
+        # Recommendation Logic
+        vibe = analysis.get('vibe', 'fresh')
+        archetype_key = 'fresh'
+        if 'romance' in vibe or 'floral' in vibe: archetype_key = 'floral'
+        elif 'bold' in vibe or 'warm' in vibe: archetype_key = 'warm'
+        elif 'sweet' in vibe: archetype_key = 'sweet'
+        elif 'aquatic' in vibe or 'fresh' in vibe: archetype_key = 'aquatic'
+        elif 'earthy' in vibe: archetype_key = 'wood'
+
+        recs = PERFUME_ARCHETYPES[archetype_key]['similars']
+
+        result = {
+            'vibe': analysis['vibe'],
+            'palette': colors,
+            'color_name': analysis['dominant_color_name'],
+            'recommendation': random.choice(recs),
+            'description': f"Your aesthetic screams **{analysis['dominant_color_name'].upper()}**. We detect a {analysis['vibe']} energy. Try this scent to match your mood!"
+        }
+
+        return jsonify(result)
+
+    finally:
+        if os.path.exists(image_path):
+            os.remove(image_path)
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

@@ -221,22 +221,25 @@
         <!-- Navigation Tabs -->
         <ul class="nav nav-pills mb-4 justify-content-center" id="pills-tab" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="pills-camera-tab" data-bs-toggle="pill" data-bs-target="#pills-camera" type="button" role="tab"><i class="bi bi-camera"></i> Camera Scan</button>
+                <button class="nav-link active" id="pills-camera-tab" data-bs-toggle="pill" data-bs-target="#pills-camera" type="button" role="tab"><i class="bi bi-camera"></i> Camera</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="pills-upload-tab" data-bs-toggle="pill" data-bs-target="#pills-upload" type="button" role="tab"><i class="bi bi-upload"></i> Upload Image</button>
+                <button class="nav-link" id="pills-upload-tab" data-bs-toggle="pill" data-bs-target="#pills-upload" type="button" role="tab"><i class="bi bi-upload"></i> Upload</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="pills-search-tab" data-bs-toggle="pill" data-bs-target="#pills-search" type="button" role="tab"><i class="bi bi-search"></i> Manual Search</button>
+                <button class="nav-link" id="pills-search-tab" data-bs-toggle="pill" data-bs-target="#pills-search" type="button" role="tab"><i class="bi bi-search"></i> Search</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="pills-mix-tab" data-bs-toggle="pill" data-bs-target="#pills-mix" type="button" role="tab"><i class="bi bi-eyedropper"></i> Mix Lab</button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="pills-chat-tab" data-bs-toggle="pill" data-bs-target="#pills-chat" type="button" role="tab"><i class="bi bi-chat-dots"></i> AI Chat</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="pills-quiz-tab" data-bs-toggle="pill" data-bs-target="#pills-quiz" type="button" role="tab"><i class="bi bi-magic"></i> Scent Quiz</button>
+                <button class="nav-link" id="pills-quiz-tab" data-bs-toggle="pill" data-bs-target="#pills-quiz" type="button" role="tab"><i class="bi bi-magic"></i> Quiz</button>
             </li>
              <li class="nav-item" role="presentation">
-                <button class="nav-link" id="pills-collection-tab" data-bs-toggle="pill" data-bs-target="#pills-collection" type="button" role="tab"><i class="bi bi-collection"></i> My Collection</button>
+                <button class="nav-link" id="pills-collection-tab" data-bs-toggle="pill" data-bs-target="#pills-collection" type="button" role="tab"><i class="bi bi-collection"></i> Collection</button>
             </li>
         </ul>
 
@@ -245,12 +248,21 @@
             <!-- Camera Tab -->
             <div class="tab-pane fade show active" id="pills-camera" role="tabpanel">
                 <div class="text-center">
+                    <div class="mb-3">
+                        <div class="btn-group" role="group" aria-label="Camera Mode">
+                            <input type="radio" class="btn-check" name="cameraMode" id="mode-bottle" autocomplete="off" checked>
+                            <label class="btn btn-outline-primary" for="mode-bottle"><i class="bi bi-upc-scan"></i> Bottle ID</label>
+
+                            <input type="radio" class="btn-check" name="cameraMode" id="mode-vibe" autocomplete="off">
+                            <label class="btn btn-outline-info" for="mode-vibe"><i class="bi bi-stars"></i> Vibe Check</label>
+                        </div>
+                    </div>
                     <div id="video-container">
                         <video id="video" autoplay playsinline></video>
                     </div>
                     <button id="capture-btn" class="btn btn-lg btn-primary mt-3 shadow">
                         <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-                        Capture & Identify
+                        <span id="capture-btn-text">Capture & Identify</span>
                     </button>
                     <canvas id="canvas"></canvas>
                 </div>
@@ -261,8 +273,17 @@
                 <div class="row justify-content-center">
                     <div class="col-md-6">
                         <div class="card shadow-sm p-4">
+                            <div class="mb-3 text-center">
+                                <div class="btn-group" role="group" aria-label="Upload Mode">
+                                    <input type="radio" class="btn-check" name="uploadMode" id="upload-mode-bottle" autocomplete="off" checked>
+                                    <label class="btn btn-outline-primary" for="upload-mode-bottle">Bottle ID</label>
+
+                                    <input type="radio" class="btn-check" name="uploadMode" id="upload-mode-vibe" autocomplete="off">
+                                    <label class="btn btn-outline-info" for="upload-mode-vibe">Vibe Check</label>
+                                </div>
+                            </div>
                             <div class="mb-3">
-                                <label for="formFile" class="form-label">Choose an image of a perfume</label>
+                                <label for="formFile" class="form-label">Choose an image</label>
                                 <input class="form-control" type="file" id="formFile" accept="image/*">
                             </div>
                             <button id="upload-btn" class="btn btn-primary w-100">Analyze Image</button>
@@ -285,6 +306,49 @@
                             <p class="text-muted small mb-2">Trending Now:</p>
                             <div id="trending-container">
                                 <!-- Trending badges injected here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mix Lab Tab -->
+            <div class="tab-pane fade" id="pills-mix" role="tabpanel">
+                <div class="row justify-content-center">
+                    <div class="col-md-8">
+                        <div class="card shadow-sm p-4 text-center">
+                            <h3><i class="bi bi-eyedropper"></i> Scent Mixologist</h3>
+                            <p class="text-muted">Select two perfumes to see how they layer together.</p>
+                            <div class="row g-3 align-items-center">
+                                <div class="col-md-5">
+                                    <input type="text" id="mix-p1" class="form-control" placeholder="First Perfume (e.g. Aventus)">
+                                </div>
+                                <div class="col-md-2">
+                                    <i class="bi bi-plus-circle display-6 text-muted"></i>
+                                </div>
+                                <div class="col-md-5">
+                                    <input type="text" id="mix-p2" class="form-control" placeholder="Second Perfume (e.g. Baccarat Rouge)">
+                                </div>
+                            </div>
+                            <button id="mix-btn" class="btn btn-primary mt-4 w-50 mx-auto">Analyze Blend</button>
+                        </div>
+
+                        <!-- Mix Result -->
+                        <div id="mix-result-container" class="mt-4 d-none">
+                            <div class="card result-card p-4">
+                                <div class="scent-aura" id="mix-aura"></div>
+                                <div class="card-content-wrapper text-center">
+                                    <h4>The Blend: <span id="mix-name"></span></h4>
+                                    <div class="d-flex justify-content-center gap-3 my-3">
+                                        <img id="mix-img1" src="" class="rounded" style="height: 100px;">
+                                        <div class="align-self-center display-6">+</div>
+                                        <img id="mix-img2" src="" class="rounded" style="height: 100px;">
+                                    </div>
+                                    <p class="lead" id="mix-desc"></p>
+                                    <hr>
+                                    <p class="small text-muted">Combined Note Profile:</p>
+                                    <div id="mix-notes"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -367,7 +431,7 @@
 
         <!-- Results Section -->
         <div id="results-section" class="mt-5 mb-5 d-none">
-            <h2 class="text-center mb-4">Analysis Results</h2>
+            <h2 class="text-center mb-4" id="results-title">Analysis Results</h2>
             <div class="row justify-content-center">
                 <div class="col-md-8">
                     <div class="card result-card">
@@ -492,12 +556,14 @@
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const captureBtn = document.getElementById('capture-btn');
+        const captureBtnText = document.getElementById('capture-btn-text');
         const uploadBtn = document.getElementById('upload-btn');
         const fileInput = document.getElementById('formFile');
         const searchBtn = document.getElementById('search-btn');
         const searchInput = document.getElementById('search-input');
         const voiceSearchBtn = document.getElementById('voice-search-btn');
         const resultsSection = document.getElementById('results-section');
+        const resultsTitle = document.getElementById('results-title');
         const errorAlert = document.getElementById('error-alert');
         const loadingOverlay = document.getElementById('loading-overlay');
         const collectionGrid = document.getElementById('collection-grid');
@@ -505,6 +571,18 @@
         const quizSubmitBtn = document.getElementById('quiz-submit-btn');
         const trendingContainer = document.getElementById('trending-container');
         const darkModeToggle = document.getElementById('dark-mode-toggle');
+
+        // Mode Switches
+        const modeBottle = document.getElementById('mode-bottle');
+        const modeVibe = document.getElementById('mode-vibe');
+        const uploadModeBottle = document.getElementById('upload-mode-bottle');
+        const uploadModeVibe = document.getElementById('upload-mode-vibe');
+
+        // Mix Lab
+        const mixBtn = document.getElementById('mix-btn');
+        const mixP1 = document.getElementById('mix-p1');
+        const mixP2 = document.getElementById('mix-p2');
+        const mixResultContainer = document.getElementById('mix-result-container');
 
         // Chat Elements
         const chatInput = document.getElementById('chat-input');
@@ -599,6 +677,15 @@
             }
         }
 
+        // --- Mode Switching ---
+        function updateCaptureButton() {
+            if(modeVibe.checked) captureBtnText.textContent = "Analyze Vibe";
+            else captureBtnText.textContent = "Capture & Identify";
+        }
+        modeBottle.addEventListener('change', updateCaptureButton);
+        modeVibe.addEventListener('change', updateCaptureButton);
+
+
         // --- Dark Mode Logic ---
         darkModeToggle.addEventListener('click', () => {
             const currentTheme = document.documentElement.getAttribute('data-theme');
@@ -630,6 +717,51 @@
         }
 
         document.getElementById('pills-camera-tab').addEventListener('shown.bs.tab', startCamera);
+
+        // --- Mix Lab Logic ---
+        mixBtn.addEventListener('click', async () => {
+             const p1 = mixP1.value.trim();
+             const p2 = mixP2.value.trim();
+             if(!p1 || !p2) { alert("Please enter two perfumes."); return; }
+
+             showLoading(true);
+             try {
+                 const response = await fetch('/api/mix', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ perfume1: p1, perfume2: p2 })
+                 });
+                 const data = await response.json();
+
+                 // Render Mix
+                 document.getElementById('mix-name').textContent = data.name;
+                 document.getElementById('mix-desc').innerHTML = data.description.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                 document.getElementById('mix-img1').src = data.image1 || "https://via.placeholder.com/100";
+                 document.getElementById('mix-img2').src = data.image2 || "https://via.placeholder.com/100";
+                 document.getElementById('mix-aura').style.background = getScentGradient(data.notes);
+
+                 let notesHtml = '';
+                 for (const [key, notes] of Object.entries(data.notes)) {
+                     if(notes.length > 0) {
+                         notesHtml += `<div class="mb-2"><small class="text-uppercase fw-bold text-muted">${key}</small><br>`;
+                         notes.forEach(n => {
+                             notesHtml += `<span class="badge rounded-pill bg-secondary note-badge m-1">${n}</span>`;
+                         });
+                         notesHtml += `</div>`;
+                     }
+                 }
+                 document.getElementById('mix-notes').innerHTML = notesHtml;
+
+                 mixResultContainer.classList.remove('d-none');
+                 mixResultContainer.scrollIntoView({behavior:'smooth'});
+
+             } catch(e) {
+                 console.error(e);
+                 showError("Could not mix perfumes.");
+             } finally {
+                 showLoading(false);
+             }
+        });
 
         // --- Chat Logic ---
         async function sendChatMessage() {
@@ -795,7 +927,7 @@
             const context = canvas.getContext('2d');
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
             const dataUrl = canvas.toDataURL('image/png');
-            handleIdentification(dataUrl);
+            handleIdentification(dataUrl, modeVibe.checked);
         });
 
         uploadBtn.addEventListener('click', () => {
@@ -806,39 +938,85 @@
             }
             const reader = new FileReader();
             reader.onload = (e) => {
-                handleIdentification(e.target.result);
+                handleIdentification(e.target.result, uploadModeVibe.checked);
             };
             reader.readAsDataURL(file);
         });
 
-        async function handleIdentification(dataUrl) {
+        async function handleIdentification(dataUrl, isVibeCheck=false) {
             showLoading(true);
+            const endpoint = isVibeCheck ? '/api/vibe_check' : '/api/identify';
+
             try {
-                const response = await fetch('/api/identify', {
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ image: dataUrl }),
                 });
                 if (response.status === 503) {
                     const data = await response.json();
-                    showError(data.error || "Service unavailable. Please try manual search.");
+                    showError(data.error || "Service unavailable.");
                     return;
                 }
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const data = await response.json();
-                renderResults(data);
+
+                if (isVibeCheck) renderVibeResult(data);
+                else renderResults(data);
+
             } catch (error) {
                 console.error('Error:', error);
-                showError("Could not identify perfume. Please try again or use manual search.");
+                showError("Could not analyze image. Please try again.");
             } finally {
                 showLoading(false);
             }
+        }
+
+        function renderVibeResult(data) {
+            console.log("Vibe Check Data:", data);
+            currentResultData = data;
+
+            resultsTitle.textContent = "Vibe Analysis";
+            resultName.textContent = `Vibe: ${data.vibe.toUpperCase()}`;
+            resultSource.textContent = "AI Vibe Match";
+            resultSource.className = "badge bg-info text-dark";
+            resultConfidence.textContent = "100%";
+
+            resultImage.src = "https://via.placeholder.com/200?text=" + data.color_name;
+            resultRecommendation.textContent = data.description.replace(/\*\*(.*?)\*\*/g, '$1');
+
+            // Construct palette html
+            let paletteHtml = data.palette.map(c =>
+                `<div style="width: 30px; height: 30px; background-color: ${c}; border-radius: 50%; border: 1px solid #ccc; display:inline-block; margin:2px;" title="${c}"></div>`
+            ).join('');
+
+            // Override result notes to show color info
+            resultNotes.innerHTML = `
+                <div class="text-center mt-3">
+                    <p class="mb-2"><strong>Dominant Color Palette</strong></p>
+                    ${paletteHtml}
+                    <hr>
+                    <p class="lead">We recommend trying: <strong>${data.recommendation}</strong></p>
+                    <button class="btn btn-primary btn-sm mt-2" onclick="handleSearch('${data.recommendation}')">See Perfume Details</button>
+                </div>
+            `;
+
+            // Hide irrelevant sections
+            ocrContainer.classList.add('d-none');
+            aiVisionSection.classList.add('d-none');
+            similarPerfumesContainer.classList.add('d-none');
+
+            scentAura.style.background = `linear-gradient(135deg, ${data.palette[0]} 0%, ${data.palette[1] || '#ffffff'} 100%)`;
+
+            resultsSection.classList.remove('d-none');
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
         }
 
         // --- Rendering Results ---
         function renderResults(data) {
             console.log(data);
             currentResultData = data;
+            resultsTitle.textContent = "Analysis Results";
             const profile = data.fragrance_profile;
 
             if (!profile || profile.error) {
@@ -1050,12 +1228,12 @@
             if (show) {
                  errorAlert.classList.add('d-none');
                  resultsSection.classList.add('d-none');
+                 mixResultContainer.classList.add('d-none'); // Hide mix result too
                  const msgs = [
-                     "Extracting visual features...",
-                     "Reading text labels...",
-                     "Searching global perfume database...",
-                     "Learning new scent profiles...",
-                     "Verifying visual match..."
+                     "Extracting features...",
+                     "Searching database...",
+                     "Analyzing patterns...",
+                     "Generating response...",
                  ];
                  let i = 0;
                  const textEl = document.getElementById('loading-text');
