@@ -264,6 +264,9 @@
              <li class="nav-item" role="presentation">
                 <button class="nav-link" id="pills-collection-tab" data-bs-toggle="pill" data-bs-target="#pills-collection" type="button" role="tab"><i class="bi bi-collection"></i> Collection</button>
             </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="pills-journal-tab" data-bs-toggle="pill" data-bs-target="#pills-journal" type="button" role="tab"><i class="bi bi-journal-text"></i> Journal</button>
+            </li>
         </ul>
 
         <div class="tab-content" id="pills-tabContent">
@@ -447,10 +450,32 @@
 
              <!-- Collection Tab -->
             <div class="tab-pane fade" id="pills-collection" role="tabpanel">
-                <div id="collection-grid" class="row row-cols-1 row-cols-md-3 g-4">
-                    <!-- Collection items injected here -->
-                    <div class="col text-center w-100">
-                        <p class="text-muted">Your collection is empty. Scan or search for perfumes to add them here.</p>
+                <ul class="nav nav-tabs mb-3 justify-content-center" id="collection-tabs" role="tablist">
+                    <li class="nav-item"><button class="nav-link active" data-bs-target="#col-shelf" data-bs-toggle="tab">My Shelf</button></li>
+                    <li class="nav-item"><button class="nav-link" data-bs-target="#col-wishlist" data-bs-toggle="tab">Wishlist</button></li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="col-shelf">
+                        <div id="shelf-grid" class="row row-cols-1 row-cols-md-3 g-4"></div>
+                    </div>
+                    <div class="tab-pane fade" id="col-wishlist">
+                        <div id="wishlist-grid" class="row row-cols-1 row-cols-md-3 g-4"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Journal Tab -->
+            <div class="tab-pane fade" id="pills-journal" role="tabpanel">
+                <div class="row justify-content-center">
+                    <div class="col-md-8">
+                         <div class="d-flex justify-content-between align-items-center mb-4">
+                             <h3><i class="bi bi-journal-richtext"></i> Scent Journal</h3>
+                             <span class="text-muted small">Track your daily wears</span>
+                         </div>
+                         <div id="journal-timeline" class="list-group list-group-flush">
+                            <!-- Timeline items -->
+                            <p class="text-center text-muted">No entries yet. Log a scent from the search results!</p>
+                         </div>
                     </div>
                 </div>
             </div>
@@ -477,9 +502,17 @@
                                             <p class="card-text mb-1"><span class="badge bg-primary" id="result-source">Source: -</span></p>
                                             <p class="card-text text-muted small" id="result-desc">AI Confidence: <span id="result-confidence">-</span></p>
                                         </div>
-                                        <button class="btn btn-outline-success btn-sm" id="save-collection-btn" title="Save to Collection">
-                                            <i class="bi bi-heart"></i> Save
-                                        </button>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" id="btn-add-shelf" title="Add to My Shelf">
+                                                <i class="bi bi-box-seam"></i> Own
+                                            </button>
+                                            <button class="btn btn-outline-danger" id="btn-add-wishlist" title="Add to Wishlist">
+                                                <i class="bi bi-heart"></i> Want
+                                            </button>
+                                            <button class="btn btn-outline-secondary" id="btn-log-wear" title="Log Wear">
+                                                <i class="bi bi-journal-plus"></i> Log
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div class="mb-3 p-2 bg-white bg-opacity-75 border border-light rounded shadow-sm" style="backdrop-filter: blur(5px);">
@@ -576,6 +609,39 @@
       </div>
     </div>
 
+    <!-- Journal Modal -->
+    <div class="modal fade" id="journalModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Log Today's Scent</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+             <h6 id="journal-perfume-name" class="fw-bold text-primary mb-3"></h6>
+             <div class="mb-3 text-center">
+                <label class="form-label d-block">How do you rate it today?</label>
+                <div class="display-6 text-warning" style="cursor:pointer;" id="journal-stars">
+                    <i class="bi bi-star" data-val="1"></i>
+                    <i class="bi bi-star" data-val="2"></i>
+                    <i class="bi bi-star" data-val="3"></i>
+                    <i class="bi bi-star" data-val="4"></i>
+                    <i class="bi bi-star" data-val="5"></i>
+                </div>
+                <input type="hidden" id="journal-rating" value="0">
+             </div>
+             <div class="mb-3">
+                <label class="form-label">Notes</label>
+                <textarea class="form-control" id="journal-note" rows="3" placeholder="Occasion, mood, longevity..."></textarea>
+             </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary w-100" id="btn-save-journal">Save Log</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- History Offcanvas -->
     <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasHistory" aria-labelledby="offcanvasHistoryLabel">
       <div class="offcanvas-header">
@@ -606,8 +672,20 @@
         const resultsTitle = document.getElementById('results-title');
         const errorAlert = document.getElementById('error-alert');
         const loadingOverlay = document.getElementById('loading-overlay');
-        const collectionGrid = document.getElementById('collection-grid');
-        const saveCollectionBtn = document.getElementById('save-collection-btn');
+        // const collectionGrid = document.getElementById('collection-grid'); // Deprecated
+        const btnAddShelf = document.getElementById('btn-add-shelf');
+        const btnAddWishlist = document.getElementById('btn-add-wishlist');
+        const btnLogWear = document.getElementById('btn-log-wear');
+
+        // Journal Elements
+        const journalModal = new bootstrap.Modal(document.getElementById('journalModal'));
+        const journalPerfumeName = document.getElementById('journal-perfume-name');
+        const journalStars = document.getElementById('journal-stars');
+        const journalRating = document.getElementById('journal-rating');
+        const journalNote = document.getElementById('journal-note');
+        const btnSaveJournal = document.getElementById('btn-save-journal');
+        const journalTimeline = document.getElementById('journal-timeline');
+
         const quizSubmitBtn = document.getElementById('quiz-submit-btn');
         const trendingContainer = document.getElementById('trending-container');
         const darkModeToggle = document.getElementById('dark-mode-toggle');
@@ -1406,22 +1484,30 @@
         // --- Collection & Share ---
         // ... (re-used from previous step, functions need to be present)
         function getCollection() { return JSON.parse(localStorage.getItem('scentlens_collection')) || []; }
-        function saveToCollection(data) {
+
+        function saveToCollection(type) {
+            if (!currentResultData) return;
             const collection = getCollection();
             const name = document.getElementById('result-name').textContent;
-            if (collection.some(item => item.name === name)) return;
+
+            // Remove existing if present to allow moving/updating
+            const existingIndex = collection.findIndex(item => item.name === name);
+            if (existingIndex > -1) collection.splice(existingIndex, 1);
+
             const item = {
                 id: Date.now(),
                 name: name,
                 image: document.getElementById('result-image').src,
                 recommendation: document.getElementById('result-recommendation').textContent,
-                data: data
+                data: currentResultData,
+                type: type // 'shelf' or 'wishlist'
             };
             collection.push(item);
             localStorage.setItem('scentlens_collection', JSON.stringify(collection));
             renderCollection();
             updateSaveButtonState(name);
         }
+
         function removeFromCollection(id) {
             let collection = getCollection();
             collection = collection.filter(item => item.id !== id);
@@ -1429,36 +1515,41 @@
             renderCollection();
             if(currentResultData) updateSaveButtonState(document.getElementById('result-name').textContent);
         }
+
         function updateSaveButtonState(name) {
             const collection = getCollection();
-            const isSaved = collection.some(item => item.name === name);
-            if (isSaved) {
-                saveCollectionBtn.innerHTML = '<i class="bi bi-heart-fill"></i> Saved';
-                saveCollectionBtn.classList.remove('btn-outline-success');
-                saveCollectionBtn.classList.add('btn-success');
-                saveCollectionBtn.disabled = true;
-            } else {
-                saveCollectionBtn.innerHTML = '<i class="bi bi-heart"></i> Save';
-                saveCollectionBtn.classList.remove('btn-success');
-                saveCollectionBtn.classList.add('btn-outline-success');
-                saveCollectionBtn.disabled = false;
+            const item = collection.find(item => item.name === name);
+
+            // Reset state
+            btnAddShelf.className = 'btn btn-outline-primary';
+            btnAddShelf.innerHTML = '<i class="bi bi-box-seam"></i> Own';
+
+            btnAddWishlist.className = 'btn btn-outline-danger';
+            btnAddWishlist.innerHTML = '<i class="bi bi-heart"></i> Want';
+
+            if (item) {
+                if (item.type === 'shelf') {
+                    btnAddShelf.className = 'btn btn-primary';
+                    btnAddShelf.innerHTML = '<i class="bi bi-check-lg"></i> Owned';
+                } else if (item.type === 'wishlist') {
+                    btnAddWishlist.className = 'btn btn-danger';
+                    btnAddWishlist.innerHTML = '<i class="bi bi-heart-fill"></i> Wanted';
+                }
             }
         }
+
         function renderCollection() {
             const collection = getCollection();
-            collectionGrid.innerHTML = '';
-            if (collection.length === 0) {
-                collectionGrid.innerHTML = `
-                    <div class="col text-center w-100 mt-5">
-                        <i class="bi bi-basket display-1 text-muted"></i>
-                        <p class="text-muted mt-3">Your collection is empty. Scan or search for perfumes to add them here.</p>
-                    </div>`;
-                return;
-            }
-            collection.forEach(item => {
-                const col = document.createElement('div');
-                col.className = 'col';
-                col.innerHTML = `
+            const shelfGrid = document.getElementById('shelf-grid');
+            const wishlistGrid = document.getElementById('wishlist-grid');
+
+            if(!shelfGrid || !wishlistGrid) return;
+
+            shelfGrid.innerHTML = '';
+            wishlistGrid.innerHTML = '';
+
+            const renderItem = (item) => `
+                <div class="col">
                     <div class="card h-100 shadow-sm collection-item">
                         <img src="${item.image}" class="card-img-top" alt="${item.name}" style="height: 200px; object-fit: contain; padding: 10px;">
                         <div class="card-body">
@@ -1469,18 +1560,37 @@
                              <button class="btn btn-sm btn-outline-danger" onclick="removeFromCollection(${item.id})">
                                 <i class="bi bi-trash"></i>
                             </button>
-                             <button class="btn btn-sm btn-primary" onclick='loadFromCollection(${JSON.stringify(item.data)})'>
+                             <button class="btn btn-sm btn-primary" onclick='loadFromCollection(${JSON.stringify(item.data).replace(/'/g, "&apos;")})'>
                                 View
                             </button>
                         </div>
                     </div>
-                `;
-                collectionGrid.appendChild(col);
+                </div>`;
+
+            let shelfCount = 0;
+            let wishlistCount = 0;
+
+            collection.forEach(item => {
+                if(item.type === 'wishlist') {
+                    wishlistGrid.innerHTML += renderItem(item);
+                    wishlistCount++;
+                } else {
+                    shelfGrid.innerHTML += renderItem(item);
+                    shelfCount++;
+                }
             });
+
+            if(shelfCount === 0) shelfGrid.innerHTML = '<div class="col text-center w-100 text-muted mt-5">Nothing on your shelf yet.</div>';
+            if(wishlistCount === 0) wishlistGrid.innerHTML = '<div class="col text-center w-100 text-muted mt-5">Your wishlist is empty.</div>';
         }
+
         window.removeFromCollection = removeFromCollection;
         window.loadFromCollection = (data) => { renderResults(data); };
-        saveCollectionBtn.addEventListener('click', () => { if (currentResultData) saveToCollection(currentResultData); });
+
+        // Listeners
+        btnAddShelf.addEventListener('click', () => saveToCollection('shelf'));
+        btnAddWishlist.addEventListener('click', () => saveToCollection('wishlist'));
+
         shareBtn.addEventListener('click', () => {
             if (!currentResultData) return;
             const name = resultName.textContent;
@@ -1493,6 +1603,74 @@
             });
         });
         document.getElementById('pills-collection-tab').addEventListener('shown.bs.tab', renderCollection);
+
+        // --- Journal Logic ---
+        btnLogWear.addEventListener('click', () => {
+             journalPerfumeName.textContent = document.getElementById('result-name').textContent;
+             journalRating.value = 0;
+             journalNote.value = "";
+             resetStars();
+             journalModal.show();
+        });
+
+        journalStars.addEventListener('click', (e) => {
+            if(e.target.tagName === 'I') {
+                const val = e.target.getAttribute('data-val');
+                journalRating.value = val;
+                updateStars(val);
+            }
+        });
+
+        function updateStars(val) {
+            const stars = journalStars.querySelectorAll('i');
+            stars.forEach(star => {
+                if(star.getAttribute('data-val') <= val) {
+                    star.classList.remove('bi-star');
+                    star.classList.add('bi-star-fill');
+                } else {
+                    star.classList.remove('bi-star-fill');
+                    star.classList.add('bi-star');
+                }
+            });
+        }
+        function resetStars() { updateStars(0); }
+
+        btnSaveJournal.addEventListener('click', () => {
+            const entry = {
+                id: Date.now(),
+                name: journalPerfumeName.textContent,
+                rating: journalRating.value,
+                note: journalNote.value,
+                date: new Date().toISOString()
+            };
+
+            let journal = JSON.parse(localStorage.getItem('scentlens_journal')) || [];
+            journal.unshift(entry);
+            localStorage.setItem('scentlens_journal', JSON.stringify(journal));
+
+            renderJournal();
+            journalModal.hide();
+        });
+
+        function renderJournal() {
+            const journal = JSON.parse(localStorage.getItem('scentlens_journal')) || [];
+            if(journal.length === 0) return;
+
+            journalTimeline.innerHTML = journal.map(entry => `
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1 text-primary">${entry.name}</h5>
+                        <small class="text-muted">${new Date(entry.date).toLocaleDateString()}</small>
+                    </div>
+                    <div class="mb-1 text-warning">
+                        ${'★'.repeat(entry.rating)}${'☆'.repeat(5-entry.rating)}
+                    </div>
+                    <p class="mb-1 small text-muted">${entry.note || 'No notes.'}</p>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('pills-journal-tab').addEventListener('shown.bs.tab', renderJournal);
 
         // --- Common ---
         function showLoading(show) {
