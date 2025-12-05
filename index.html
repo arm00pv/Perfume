@@ -10,6 +10,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- HTML5-QRCode -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         :root {
             --bg-color: #f8f9fa;
@@ -205,6 +207,9 @@
             <button class="btn btn-outline-primary btn-sm" id="dark-mode-toggle">
                 <i class="bi bi-moon"></i>
             </button>
+            <button class="btn btn-outline-secondary btn-sm ms-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasHistory" aria-controls="offcanvasHistory" title="History">
+                <i class="bi bi-clock-history"></i>
+            </button>
         </div>
     </nav>
 
@@ -273,11 +278,15 @@
 
                             <input type="radio" class="btn-check" name="cameraMode" id="mode-vibe" autocomplete="off">
                             <label class="btn btn-outline-info" for="mode-vibe"><i class="bi bi-stars"></i> Vibe Check</label>
+
+                            <input type="radio" class="btn-check" name="cameraMode" id="mode-barcode" autocomplete="off">
+                            <label class="btn btn-outline-secondary" for="mode-barcode"><i class="bi bi-upc"></i> Barcode</label>
                         </div>
                     </div>
                     <div id="video-container">
                         <video id="video" autoplay playsinline></video>
                     </div>
+                    <div id="barcode-reader" class="d-none mx-auto border rounded overflow-hidden"></div>
                     <button id="capture-btn" class="btn btn-lg btn-primary mt-3 shadow">
                         <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
                         <span id="capture-btn-text">Capture & Identify</span>
@@ -567,6 +576,19 @@
       </div>
     </div>
 
+    <!-- History Offcanvas -->
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasHistory" aria-labelledby="offcanvasHistoryLabel">
+      <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="offcanvasHistoryLabel"><i class="bi bi-clock-history"></i> Recent Scans</h5>
+        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+      </div>
+      <div class="offcanvas-body">
+        <div id="history-list" class="list-group list-group-flush">
+            <p class="text-muted small text-center">No history yet.</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -593,8 +615,11 @@
         // Mode Switches
         const modeBottle = document.getElementById('mode-bottle');
         const modeVibe = document.getElementById('mode-vibe');
+        const modeBarcode = document.getElementById('mode-barcode');
         const uploadModeBottle = document.getElementById('upload-mode-bottle');
         const uploadModeVibe = document.getElementById('upload-mode-vibe');
+        const barcodeReader = document.getElementById('barcode-reader');
+        const videoContainer = document.getElementById('video-container');
 
         // Mix Lab
         const mixBtn = document.getElementById('mix-btn');
@@ -798,13 +823,68 @@
         }
 
         // --- Mode Switching ---
+        let html5QrcodeScanner = null;
+
         function updateCaptureButton() {
-            if(modeVibe.checked) captureBtnText.textContent = "Analyze Vibe";
-            else captureBtnText.textContent = "Capture & Identify";
+            if (modeBarcode.checked) {
+                captureBtn.classList.add('d-none');
+                videoContainer.classList.add('d-none');
+                barcodeReader.classList.remove('d-none');
+                startBarcodeScanner();
+            } else {
+                stopBarcodeScanner();
+                barcodeReader.classList.add('d-none');
+                videoContainer.classList.remove('d-none');
+                captureBtn.classList.remove('d-none');
+
+                if(modeVibe.checked) captureBtnText.textContent = "Analyze Vibe";
+                else captureBtnText.textContent = "Capture & Identify";
+
+                // Restart generic camera if needed
+                if(video.srcObject === null) startCamera();
+            }
         }
+
         modeBottle.addEventListener('change', updateCaptureButton);
         modeVibe.addEventListener('change', updateCaptureButton);
+        modeBarcode.addEventListener('change', updateCaptureButton);
 
+        function startBarcodeScanner() {
+            // Stop generic stream first to release camera
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+
+            if (!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5QrcodeScanner(
+                    "barcode-reader", { fps: 10, qrbox: 250, aspectRatio: 1.0 });
+
+                html5QrcodeScanner.render((decodedText) => {
+                    console.log(`Barcode: ${decodedText}`);
+                    // Play beep
+                    const audio = new Audio('https://www.soundjay.com/button/beep-07.wav'); // Simple beep
+                    audio.play().catch(e=>console.log(e));
+
+                    stopBarcodeScanner();
+
+                    // Reset UI to bottle mode to stop scanning loop
+                    modeBottle.checked = true;
+                    updateCaptureButton();
+
+                    handleSearch(decodedText);
+                }, (err) => {
+                    // console.log(err);
+                });
+            }
+        }
+
+        function stopBarcodeScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.clear().catch(e => console.error(e));
+                html5QrcodeScanner = null;
+            }
+        }
 
         // --- Dark Mode Logic ---
         darkModeToggle.addEventListener('click', () => {
@@ -828,6 +908,7 @@
 
         // --- Camera Logic ---
         async function startCamera() {
+            if (modeBarcode.checked) return; // Don't start generic camera if in barcode mode
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 video.srcObject = stream;
@@ -836,7 +917,23 @@
             }
         }
 
-        document.getElementById('pills-camera-tab').addEventListener('shown.bs.tab', startCamera);
+        document.getElementById('pills-camera-tab').addEventListener('shown.bs.tab', () => {
+             // Reset to bottle mode on tab switch to avoid stuck scanner
+             if(modeBarcode.checked) {
+                 modeBottle.checked = true;
+                 updateCaptureButton();
+             }
+             startCamera();
+        });
+
+        // Stop camera when leaving tab
+        document.getElementById('pills-camera-tab').addEventListener('hidden.bs.tab', () => {
+             if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            stopBarcodeScanner();
+        });
 
         // --- Mix Lab Logic ---
         mixBtn.addEventListener('click', async () => {
@@ -1247,9 +1344,64 @@
             shopLink.href = `https://www.google.com/search?q=${encodeURIComponent(name + ' perfume buy')}&tbm=shop`;
             updateSaveButtonState(name);
 
+            // Add to History
+            addToHistory(data);
+
             resultsSection.classList.remove('d-none');
             resultsSection.scrollIntoView({ behavior: 'smooth' });
         }
+
+        // --- History Logic ---
+        function addToHistory(data) {
+            if(!data || !data.fragrance_profile || data.fragrance_profile.error) return;
+
+            let history = JSON.parse(localStorage.getItem('scentlens_history')) || [];
+            const item = {
+                name: data.fragrance_profile.name || data.search_query,
+                timestamp: Date.now(),
+                image: data.fragrance_profile.image_url,
+                data: data
+            };
+
+            // Remove duplicate by name
+            history = history.filter(h => h.name !== item.name);
+            // Add to top
+            history.unshift(item);
+            // Limit to 10
+            if(history.length > 10) history.pop();
+
+            localStorage.setItem('scentlens_history', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const history = JSON.parse(localStorage.getItem('scentlens_history')) || [];
+            const container = document.getElementById('history-list');
+            if(!container) return;
+
+            if(history.length === 0) {
+                container.innerHTML = '<p class="text-muted small text-center">No history yet.</p>';
+                return;
+            }
+
+            container.innerHTML = history.map(item => `
+                <button class="list-group-item list-group-item-action d-flex gap-3 py-3" onclick='loadFromHistory(${JSON.stringify(item.data).replace(/'/g, "&apos;")})' data-bs-dismiss="offcanvas">
+                    <img src="${item.image || 'https://via.placeholder.com/40'}" alt="perfume" width="40" height="40" class="rounded-circle flex-shrink-0" style="object-fit:cover;">
+                    <div class="d-flex gap-2 w-100 justify-content-between">
+                        <div class="text-start">
+                            <h6 class="mb-0 text-truncate" style="max-width: 180px;">${item.name}</h6>
+                            <p class="mb-0 opacity-75 small">${new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                        </div>
+                    </div>
+                </button>
+            `).join('');
+        }
+
+        window.loadFromHistory = (data) => {
+            renderResults(data);
+        };
+
+        document.addEventListener('DOMContentLoaded', renderHistory);
 
         // --- Collection & Share ---
         // ... (re-used from previous step, functions need to be present)

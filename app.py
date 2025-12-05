@@ -317,14 +317,53 @@ def get_mock_data(name):
         'similars': sims
     }
 
+def resolve_barcode(barcode):
+    print(f"Resolving barcode: {barcode}")
+    try:
+        # Search Google for the barcode to find product name
+        query = f"{barcode} perfume"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+        url = f"https://www.google.com/search?q={query}"
+
+        res = requests.get(url, headers=headers, timeout=5)
+        soup = BeautifulSoup(res.text, 'html.parser')
+
+        # Google search results usually have titles in h3
+        for h3 in soup.find_all('h3'):
+            text = h3.get_text()
+            if text:
+                # Clean up: Remove common suffixes/prefixes if needed
+                # Ideally, just returning the first result title gives us the product name
+                # We can strip " - UPC..." or " - Barcode Lookup" if they appear
+                print(f"Barcode resolved to: {text}")
+                return text
+
+    except Exception as e:
+        print(f"Barcode lookup error: {e}")
+
+    return None
+
 @app.route('/api/search', methods=['POST'])
 def search_perfume():
     data = request.get_json()
     if 'query' not in data:
         return jsonify({'error': 'No query provided'}), 400
 
-    perfume_name = data['query']
-    fragrance_profile = scrape_fragrantica(perfume_name)
+    query = data['query']
+
+    # Check if input is a barcode (8-14 digits)
+    if re.match(r'^\d{8,14}$', query):
+        resolved = resolve_barcode(query)
+        if resolved:
+            query = resolved
+
+    fragrance_profile = scrape_fragrantica(query)
+    # Add the original query (barcode) to the response if it was resolved
+    if query != data['query']:
+        fragrance_profile['barcode_resolved_from'] = data['query']
+
     return jsonify({'fragrance_profile': fragrance_profile})
 
 @app.route('/api/identify', methods=['POST'])
