@@ -12,6 +12,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <!-- HTML5-QRCode -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --bg-color: #f8f9fa;
@@ -519,6 +521,12 @@
                                             <p class="card-text mb-1"><span class="badge bg-primary" id="result-source">Source: -</span></p>
                                             <p class="card-text text-muted small" id="result-desc">AI Confidence: <span id="result-confidence">-</span></p>
                                         </div>
+
+                                        <!-- Profile Radar -->
+                                        <div class="mb-3" style="position: relative; height: 150px; width: 100%;">
+                                            <canvas id="scent-profile-chart"></canvas>
+                                        </div>
+
                                         <div class="btn-group btn-group-sm">
                                             <button class="btn btn-outline-primary" id="btn-add-shelf" title="Add to My Shelf">
                                                 <i class="bi bi-box-seam"></i> Own
@@ -1131,7 +1139,10 @@
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: msg })
+                    body: JSON.stringify({
+                        message: msg,
+                        context: currentResultData ? currentResultData.fragrance_profile : null
+                    })
                 });
                 const data = await response.json();
                 addChatMessage(data.response, 'bot');
@@ -1366,6 +1377,49 @@
             resultsSection.scrollIntoView({ behavior: 'smooth' });
         }
 
+        let profileChart = null;
+        function renderRadar(versatility) {
+            const ctx = document.getElementById('scent-profile-chart');
+            if (profileChart) {
+                profileChart.destroy();
+                profileChart = null;
+            }
+
+            if (!versatility) {
+                ctx.style.display = 'none';
+                return;
+            }
+            ctx.style.display = 'block';
+
+            profileChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Day', 'Night', 'Warm', 'Fresh'],
+                    datasets: [{
+                        label: 'Profile',
+                        data: [versatility.day, versatility.night, versatility.warm, versatility.fresh],
+                        backgroundColor: 'rgba(111, 66, 193, 0.2)',
+                        borderColor: 'rgba(111, 66, 193, 1)',
+                        pointBackgroundColor: 'rgba(111, 66, 193, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        r: {
+                            angleLines: { display: true },
+                            suggestedMin: 0,
+                            suggestedMax: 5,
+                            ticks: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
         // --- Rendering Results ---
         function renderResults(data) {
             console.log(data);
@@ -1479,6 +1533,10 @@
             }
 
             shopLink.href = `https://www.google.com/search?q=${encodeURIComponent(name + ' perfume buy')}&tbm=shop`;
+
+            // AI Analysis Radar
+            renderRadar(profile.versatility);
+
             updateSaveButtonState(name);
 
             // Add to History

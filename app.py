@@ -137,6 +137,35 @@ def analyze_notes(notes):
     if scores[best_match] == 0: return 'fresh' # Default
     return best_match
 
+def analyze_versatility(text, notes):
+    text = text.lower() if text else ""
+    scores = {'day': 0, 'night': 0, 'fresh': 0, 'warm': 0}
+
+    # Keywords
+    keywords = {
+        'day': ['daily', 'office', 'casual', 'sun', 'morning', 'light', 'work'],
+        'night': ['evening', 'date', 'party', 'dinner', 'bold', 'sexy', 'night'],
+        'fresh': ['clean', 'citrus', 'water', 'summer', 'spring', 'airy', 'green'],
+        'warm': ['cozy', 'winter', 'fall', 'spicy', 'deep', 'sweet', 'rich']
+    }
+
+    # Check Text
+    for cat, words in keywords.items():
+        for w in words:
+            if w in text: scores[cat] += 1
+
+    # Check Notes
+    all_notes = []
+    for nlist in notes.values(): all_notes.extend([n.lower() for n in nlist])
+    all_notes_str = " ".join(all_notes)
+
+    if any(x in all_notes_str for x in ['lemon', 'lime', 'bergamot', 'mint', 'sea']): scores['fresh'] += 2
+    if any(x in all_notes_str for x in ['vanilla', 'amber', 'oud', 'leather', 'tobacco']): scores['warm'] += 2
+    if any(x in all_notes_str for x in ['white floral', 'peony', 'tea']): scores['day'] += 1
+    if any(x in all_notes_str for x in ['jasmine', 'tuberose', 'patchouli']): scores['night'] += 1
+
+    return scores
+
 def get_recommendation_and_similars(notes):
     archetype = analyze_notes(notes)
     data = PERFUME_ARCHETYPES.get(archetype, PERFUME_ARCHETYPES['fresh'])
@@ -149,8 +178,27 @@ def get_recommendation_and_similars(notes):
 
     return full_text, similars
 
-def chat_response(message):
+def chat_response(message, context=None):
     message = message.lower()
+
+    # 0. Contextual Awareness
+    if context and any(x in message for x in ['it', 'this', 'perfume', 'fragrance', 'scent']):
+        name = context.get('name', 'this scent')
+        notes = context.get('notes', {})
+        versatility = context.get('versatility', {})
+
+        if 'winter' in message or 'cold' in message:
+            score = versatility.get('warm', 0)
+            return f"**{name}** has a warmth score of {score}. " + ("It's perfect for the cold!" if score > 3 else "It might be a bit too fresh for deep winter.")
+
+        if 'summer' in message or 'hot' in message:
+            score = versatility.get('fresh', 0)
+            return f"**{name}** has a freshness score of {score}. " + ("Great for high heat!" if score > 3 else "It might be cloying in summer.")
+
+        if 'notes' in message or 'ingredients' in message:
+            all_notes = []
+            for n in notes.values(): all_notes.extend(n)
+            return f"Key notes in **{name}** include: " + ", ".join(all_notes[:5]) + "."
 
     # 1. Ingredient Definition
     for ing, definition in INGREDIENT_DEFINITIONS.items():
@@ -179,9 +227,10 @@ def chat_response(message):
 def chat():
     data = request.get_json()
     msg = data.get('message', '')
+    context = data.get('context')
     if not msg:
         return jsonify({'error': 'Empty message'}), 400
-    response = chat_response(msg)
+    response = chat_response(msg, context)
     return jsonify({'response': response})
 
 # --- Scraper Helpers (Keep existing Fragrantica logic) ---
@@ -245,6 +294,12 @@ def scrape_fragrantica(perfume_name):
         if title_tag:
             result_data['name'] = title_tag.get_text(strip=True)
 
+        # Extract description for versatility analysis
+        description_text = ""
+        meta_desc = perfume_soup.find('meta', attrs={'name': 'description'})
+        if meta_desc:
+            description_text = meta_desc['content']
+
         pyramid_container = perfume_soup.find('div', id='pyramid')
         if not pyramid_container:
              result_data['recommendation'] = "Scent profile not detailed."
@@ -267,6 +322,7 @@ def scrape_fragrantica(perfume_name):
         rec, sims = get_recommendation_and_similars(notes)
         result_data['recommendation'] = rec
         result_data['similars'] = sims
+        result_data['versatility'] = analyze_versatility(description_text, notes)
 
         return result_data
 
@@ -314,7 +370,8 @@ def get_mock_data(name):
         'notes': notes,
         'image_url': image_url,
         'recommendation': rec + " (Note: This is a simulated result as live data was inaccessible.)",
-        'similars': sims
+        'similars': sims,
+        'versatility': analyze_versatility("", notes)
     }
 
 def resolve_barcode(barcode):
