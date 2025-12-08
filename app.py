@@ -523,6 +523,24 @@ def identify_perfume():
         'ai_debug': ai_debug
     })
 
+SCENT_COMPATIBILITY = {
+    'fresh': ['wood', 'citrus', 'floral', 'aquatic'],
+    'floral': ['fresh', 'wood', 'warm', 'sweet'],
+    'warm': ['sweet', 'wood', 'floral'],
+    'sweet': ['warm', 'wood', 'floral'],
+    'aquatic': ['fresh', 'wood'],
+    'wood': ['fresh', 'warm', 'floral', 'sweet', 'aquatic'] # Wood goes with everything
+}
+
+def calculate_harmony(arch1, arch2):
+    if arch1 == arch2:
+        return 85, f"A seamless blend reinforcing the **{arch1}** character. Very cohesive."
+
+    if arch2 in SCENT_COMPATIBILITY.get(arch1, []):
+        return 95, f"A perfect match! The **{arch1}** notes balance beautifully with the **{arch2}** profile."
+
+    return 65, f"A bold contrast. The **{arch1}** and **{arch2}** notes might fight for dominance."
+
 @app.route('/api/mix', methods=['POST'])
 def mix_perfumes():
     data = request.get_json()
@@ -535,6 +553,12 @@ def mix_perfumes():
     # Scrape both
     p1_data = scrape_fragrantica(p1_name)
     p2_data = scrape_fragrantica(p2_name)
+
+    # Analyze Individual Archetypes
+    arch1 = analyze_notes(p1_data.get('notes', {}))
+    arch2 = analyze_notes(p2_data.get('notes', {}))
+
+    harmony_score, mixing_tip = calculate_harmony(arch1, arch2)
 
     # Combine Notes
     combined_notes = {}
@@ -563,7 +587,9 @@ def mix_perfumes():
         'description': description,
         'notes': combined_notes,
         'image1': p1_data.get('image_url'),
-        'image2': p2_data.get('image_url')
+        'image2': p2_data.get('image_url'),
+        'harmony_score': harmony_score,
+        'mixing_tip': mixing_tip
     })
 
 @app.route('/api/vibe_check', methods=['POST'])

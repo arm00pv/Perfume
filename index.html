@@ -374,6 +374,18 @@
                                         <div class="align-self-center display-6">+</div>
                                         <img id="mix-img2" src="" class="rounded" style="height: 100px;">
                                     </div>
+
+                                     <div class="mb-4 px-4">
+                                        <div class="d-flex justify-content-between small fw-bold text-muted mb-1">
+                                            <span>Disharmony</span>
+                                            <span>Harmony</span>
+                                        </div>
+                                        <div class="progress" style="height: 20px; border-radius: 10px;">
+                                            <div id="mix-harmony-bar" class="progress-bar bg-gradient-success" role="progressbar" style="width: 0%; transition: width 1s;">0%</div>
+                                        </div>
+                                        <p class="small fst-italic mt-2 text-primary" id="mix-tip"></p>
+                                     </div>
+
                                     <p class="lead" id="mix-desc"></p>
                                     <hr>
                                     <p class="small text-muted">Combined Note Profile:</p>
@@ -450,10 +462,15 @@
 
              <!-- Collection Tab -->
             <div class="tab-pane fade" id="pills-collection" role="tabpanel">
-                <ul class="nav nav-tabs mb-3 justify-content-center" id="collection-tabs" role="tablist">
-                    <li class="nav-item"><button class="nav-link active" data-bs-target="#col-shelf" data-bs-toggle="tab">My Shelf</button></li>
-                    <li class="nav-item"><button class="nav-link" data-bs-target="#col-wishlist" data-bs-toggle="tab">Wishlist</button></li>
-                </ul>
+                <div class="d-flex justify-content-center position-relative mb-3">
+                    <ul class="nav nav-tabs border-bottom-0" id="collection-tabs" role="tablist">
+                        <li class="nav-item"><button class="nav-link active" data-bs-target="#col-shelf" data-bs-toggle="tab">My Shelf</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-target="#col-wishlist" data-bs-toggle="tab">Wishlist</button></li>
+                    </ul>
+                    <button class="btn btn-outline-info btn-sm position-absolute end-0 top-0" id="btn-dna-analysis" title="Analyze Scent DNA">
+                        <i class="bi bi-pie-chart-fill"></i> DNA
+                    </button>
+                </div>
                 <div class="tab-content">
                     <div class="tab-pane fade show active" id="col-shelf">
                         <div id="shelf-grid" class="row row-cols-1 row-cols-md-3 g-4"></div>
@@ -642,6 +659,33 @@
       </div>
     </div>
 
+    <!-- DNA Modal -->
+    <div class="modal fade" id="dnaModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-pie-chart-fill text-info"></i> Your Scent DNA</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body text-center">
+             <div id="dna-chart" class="mb-4 shadow-sm" style="width: 180px; height: 180px; margin: 0 auto; border-radius: 50%; background: #eee; position: relative;">
+                 <!-- Inner circle for donut chart -->
+                 <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100px; height: 100px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                     <span class="small text-muted">Vibe</span>
+                 </div>
+             </div>
+             <h4 id="dna-signature">Signature: Undefined</h4>
+             <p class="text-muted small" id="dna-desc">Add more perfumes to unlock your profile.</p>
+             <hr>
+             <div class="text-start">
+                 <h6 class="text-uppercase small fw-bold text-muted">Your Favorite Notes</h6>
+                 <div id="dna-top-notes" class="d-flex flex-wrap gap-1"></div>
+             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- History Offcanvas -->
     <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasHistory" aria-labelledby="offcanvasHistoryLabel">
       <div class="offcanvas-header">
@@ -685,6 +729,10 @@
         const journalNote = document.getElementById('journal-note');
         const btnSaveJournal = document.getElementById('btn-save-journal');
         const journalTimeline = document.getElementById('journal-timeline');
+
+        // DNA Elements
+        const btnDnaAnalysis = document.getElementById('btn-dna-analysis');
+        const dnaModal = new bootstrap.Modal(document.getElementById('dnaModal'));
 
         const quizSubmitBtn = document.getElementById('quiz-submit-btn');
         const trendingContainer = document.getElementById('trending-container');
@@ -1046,6 +1094,17 @@
                      }
                  }
                  document.getElementById('mix-notes').innerHTML = notesHtml;
+
+                 // Harmony
+                 const harmony = data.harmony_score || 50;
+                 const bar = document.getElementById('mix-harmony-bar');
+                 bar.style.width = harmony + "%";
+                 bar.textContent = harmony + "%";
+                 if(harmony >= 80) bar.className = "progress-bar bg-success";
+                 else if(harmony >= 60) bar.className = "progress-bar bg-info";
+                 else bar.className = "progress-bar bg-warning";
+
+                 document.getElementById('mix-tip').textContent = data.mixing_tip || "";
 
                  mixResultContainer.classList.remove('d-none');
                  mixResultContainer.scrollIntoView({behavior:'smooth'});
@@ -1671,6 +1730,65 @@
         }
 
         document.getElementById('pills-journal-tab').addEventListener('shown.bs.tab', renderJournal);
+
+        // --- DNA Logic ---
+        btnDnaAnalysis.addEventListener('click', analyzeCollection);
+
+        function analyzeCollection() {
+            const collection = getCollection().filter(i => i.type !== 'wishlist');
+            if(collection.length < 1) { alert("Add some perfumes to your shelf first!"); return; }
+
+            // Logic to count vibes and notes
+            let vibes = { 'fresh': 0, 'floral': 0, 'warm': 0, 'sweet': 0, 'aquatic': 0, 'wood': 0 };
+            let notes = {};
+
+            collection.forEach(item => {
+                const text = (item.recommendation + " " + item.name).toLowerCase();
+                if(text.includes('fresh') || text.includes('citrus')) vibes['fresh']++;
+                if(text.includes('floral') || text.includes('rose')) vibes['floral']++;
+                if(text.includes('warm') || text.includes('spicy')) vibes['warm']++;
+                if(text.includes('sweet') || text.includes('vanilla')) vibes['sweet']++;
+                if(text.includes('wood') || text.includes('earthy')) vibes['wood']++;
+
+                // Notes extraction (if available in data)
+                if(item.data && item.data.fragrance_profile && item.data.fragrance_profile.notes) {
+                    const prof = item.data.fragrance_profile.notes;
+                    Object.values(prof).flat().forEach(n => {
+                        const clean = n.trim();
+                        notes[clean] = (notes[clean] || 0) + 1;
+                    });
+                }
+            });
+
+            // Chart
+            const total = Object.values(vibes).reduce((a,b)=>a+b, 0) || 1;
+            let gradient = [];
+            let current = 0;
+            const colors = { 'fresh': '#a8ff78', 'floral': '#FF9A9E', 'warm': '#c31432', 'sweet': '#FDC830', 'wood': '#8B4513', 'aquatic': '#2193b0' };
+
+            for(const [v, count] of Object.entries(vibes)) {
+                if(count > 0) {
+                    const pct = (count / total) * 100;
+                    gradient.push(`${colors[v] || '#ccc'} ${current}% ${current + pct}%`);
+                    current += pct;
+                }
+            }
+
+            document.getElementById('dna-chart').style.background = `conic-gradient(${gradient.join(', ')})`;
+
+            // Signature
+            const topVibe = Object.keys(vibes).reduce((a, b) => vibes[a] > vibes[b] ? a : b);
+            document.getElementById('dna-signature').textContent = `Signature: ${topVibe.charAt(0).toUpperCase() + topVibe.slice(1)}`;
+            document.getElementById('dna-desc').textContent = `Your collection is dominated by ${topVibe} notes.`;
+
+            // Top Notes
+            const sortedNotes = Object.entries(notes).sort((a,b) => b[1]-a[1]).slice(0, 5);
+            document.getElementById('dna-top-notes').innerHTML = sortedNotes.map(([n, c]) =>
+                `<span class="badge bg-secondary rounded-pill">${n}</span>`
+            ).join(' ');
+
+            dnaModal.show();
+        }
 
         // --- Common ---
         function showLoading(show) {
