@@ -255,7 +255,7 @@
                 <button class="nav-link" id="pills-search-tab" data-bs-toggle="pill" data-bs-target="#pills-search" type="button" role="tab"><i class="bi bi-search"></i> Search</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="pills-mix-tab" data-bs-toggle="pill" data-bs-target="#pills-mix" type="button" role="tab"><i class="bi bi-eyedropper"></i> Mix Lab</button>
+                <button class="nav-link" id="pills-ai-tab" data-bs-toggle="pill" data-bs-target="#pills-ai" type="button" role="tab"><i class="bi bi-stars"></i> AI Lab</button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="pills-chat-tab" data-bs-toggle="pill" data-bs-target="#pills-chat" type="button" role="tab"><i class="bi bi-chat-dots"></i> AI Chat</button>
@@ -344,57 +344,110 @@
                 </div>
             </div>
 
-            <!-- Mix Lab Tab -->
-            <div class="tab-pane fade" id="pills-mix" role="tabpanel">
+            <!-- AI Lab Tab -->
+            <div class="tab-pane fade" id="pills-ai" role="tabpanel">
                 <div class="row justify-content-center">
                     <div class="col-md-8">
-                        <div class="card shadow-sm p-4 text-center">
-                            <h3><i class="bi bi-eyedropper"></i> Scent Mixologist</h3>
-                            <p class="text-muted">Select two perfumes to see how they layer together.</p>
-                            <div class="row g-3 align-items-center">
-                                <div class="col-md-5">
-                                    <input type="text" id="mix-p1" class="form-control" placeholder="First Perfume (e.g. Aventus)">
-                                </div>
-                                <div class="col-md-2">
-                                    <i class="bi bi-plus-circle display-6 text-muted"></i>
-                                </div>
-                                <div class="col-md-5">
-                                    <input type="text" id="mix-p2" class="form-control" placeholder="Second Perfume (e.g. Baccarat Rouge)">
-                                </div>
-                            </div>
-                            <button id="mix-btn" class="btn btn-primary mt-4 w-50 mx-auto">Analyze Blend</button>
-                        </div>
+                        <ul class="nav nav-pills justify-content-center mb-4" id="ai-sub-tabs">
+                            <li class="nav-item">
+                                <a class="nav-link active" href="#" onclick="switchAiTab('mixer')"><i class="bi bi-eyedropper"></i> Mixologist</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" onclick="switchAiTab('dreamer')"><i class="bi bi-cloud-haze2"></i> Dream Scent</a>
+                            </li>
+                        </ul>
 
-                        <!-- Mix Result -->
-                        <div id="mix-result-container" class="mt-4 d-none">
-                            <div class="card result-card p-4">
-                                <div class="scent-aura" id="mix-aura"></div>
-                                <div class="card-content-wrapper text-center">
-                                    <h4>The Blend: <span id="mix-name"></span></h4>
-                                    <div class="d-flex justify-content-center gap-3 my-3">
-                                        <img id="mix-img1" src="" class="rounded" style="height: 100px;">
-                                        <div class="align-self-center display-6">+</div>
-                                        <img id="mix-img2" src="" class="rounded" style="height: 100px;">
+                        <!-- Mixer Section -->
+                        <div id="ai-mixer">
+                            <div class="card shadow-sm p-4 text-center">
+                                <h3><i class="bi bi-eyedropper"></i> Scent Mixologist</h3>
+                                <p class="text-muted">Select two perfumes to see how they layer together.</p>
+                                <div class="row g-3 align-items-center">
+                                    <div class="col-md-5">
+                                        <input type="text" id="mix-p1" class="form-control" placeholder="First Perfume (e.g. Aventus)">
                                     </div>
+                                    <div class="col-md-2">
+                                        <i class="bi bi-plus-circle display-6 text-muted"></i>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <input type="text" id="mix-p2" class="form-control" placeholder="Second Perfume (e.g. Baccarat Rouge)">
+                                    </div>
+                                </div>
+                                <button id="mix-btn" class="btn btn-primary mt-4 w-50 mx-auto">Analyze Blend</button>
+                            </div>
 
-                                     <div class="mb-4 px-4">
-                                        <div class="d-flex justify-content-between small fw-bold text-muted mb-1">
-                                            <span>Disharmony</span>
-                                            <span>Harmony</span>
+                            <!-- Mix Result -->
+                            <div id="mix-result-container" class="mt-4 d-none">
+                                <div class="card result-card p-4">
+                                    <div class="scent-aura" id="mix-aura"></div>
+                                    <div class="card-content-wrapper text-center">
+                                        <h4>The Blend: <span id="mix-name"></span></h4>
+                                        <div class="d-flex justify-content-center gap-3 my-3">
+                                            <img id="mix-img1" src="" class="rounded" style="height: 100px;">
+                                            <div class="align-self-center display-6">+</div>
+                                            <img id="mix-img2" src="" class="rounded" style="height: 100px;">
                                         </div>
-                                        <div class="progress" style="height: 20px; border-radius: 10px;">
-                                            <div id="mix-harmony-bar" class="progress-bar bg-gradient-success" role="progressbar" style="width: 0%; transition: width 1s;">0%</div>
-                                        </div>
-                                        <p class="small fst-italic mt-2 text-primary" id="mix-tip"></p>
-                                     </div>
 
-                                    <p class="lead" id="mix-desc"></p>
-                                    <hr>
-                                    <p class="small text-muted">Combined Note Profile:</p>
-                                    <div id="mix-notes"></div>
+                                         <div class="mb-4 px-4">
+                                            <div class="d-flex justify-content-between small fw-bold text-muted mb-1">
+                                                <span>Disharmony</span>
+                                                <span>Harmony</span>
+                                            </div>
+                                            <div class="progress" style="height: 20px; border-radius: 10px;">
+                                                <div id="mix-harmony-bar" class="progress-bar bg-gradient-success" role="progressbar" style="width: 0%; transition: width 1s;">0%</div>
+                                            </div>
+                                            <p class="small fst-italic mt-2 text-primary" id="mix-tip"></p>
+                                         </div>
+
+                                        <p class="lead" id="mix-desc"></p>
+                                        <hr>
+                                        <p class="small text-muted">Combined Note Profile:</p>
+                                        <div id="mix-notes"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Dreamer Section -->
+                        <div id="ai-dreamer" class="d-none">
+                            <div class="card shadow-sm p-4 text-center">
+                                <h3><i class="bi bi-cloud-haze2"></i> Dream Scent Generator</h3>
+                                <p class="text-muted">Describe a moment, a place, or a feeling. AI will bottle it for you.</p>
+                                <div class="mb-3">
+                                    <textarea id="dream-input" class="form-control" rows="3" placeholder="e.g., A rainy afternoon in a library with old leather books and Earl Grey tea..."></textarea>
+                                </div>
+                                <button id="dream-btn" class="btn btn-primary w-50 mx-auto"><i class="bi bi-magic"></i> Generate Scent</button>
+                            </div>
+
+                            <div id="dream-result-container" class="mt-4 d-none">
+                                <h5 class="text-center mb-3">AI Creation vs. Real World Match</h5>
+                                <div class="row g-3">
+                                    <!-- AI Generated Card -->
+                                    <div class="col-md-6">
+                                        <div class="card h-100 border-primary shadow-sm">
+                                            <div class="card-header bg-primary text-white">AI Creation</div>
+                                            <div class="card-body">
+                                                <h5 class="card-title" id="dream-ai-name">Loading...</h5>
+                                                <p class="card-text small fst-italic" id="dream-ai-desc">...</p>
+                                                <div id="dream-ai-notes"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Real World Match -->
+                                    <div class="col-md-6">
+                                        <div class="card h-100 border-success shadow-sm">
+                                            <div class="card-header bg-success text-white">Real Match</div>
+                                            <div class="card-body">
+                                                <h5 class="card-title" id="dream-real-name">Loading...</h5>
+                                                <p class="card-text small" id="dream-real-reason">...</p>
+                                                <button class="btn btn-sm btn-outline-success mt-2" onclick="handleSearch(document.getElementById('dream-real-name').textContent)">View Details</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -1069,7 +1122,23 @@
             stopBarcodeScanner();
         });
 
-        // --- Mix Lab Logic ---
+        // --- AI Lab Logic ---
+        window.switchAiTab = (tab) => {
+            const links = document.querySelectorAll('#ai-sub-tabs .nav-link');
+            links.forEach(l => l.classList.remove('active'));
+
+            if(tab === 'mixer') {
+                links[0].classList.add('active');
+                document.getElementById('ai-mixer').classList.remove('d-none');
+                document.getElementById('ai-dreamer').classList.add('d-none');
+            } else {
+                links[1].classList.add('active');
+                document.getElementById('ai-mixer').classList.add('d-none');
+                document.getElementById('ai-dreamer').classList.remove('d-none');
+            }
+        };
+
+        // Mixer Logic
         mixBtn.addEventListener('click', async () => {
              const p1 = mixP1.value.trim();
              const p2 = mixP2.value.trim();
@@ -1123,6 +1192,46 @@
              } finally {
                  showLoading(false);
              }
+        });
+
+        // Dreamer Logic
+        const dreamBtn = document.getElementById('dream-btn');
+        const dreamInput = document.getElementById('dream-input');
+        const dreamResultContainer = document.getElementById('dream-result-container');
+
+        dreamBtn.addEventListener('click', async () => {
+            const prompt = dreamInput.value.trim();
+            if(!prompt) { alert("Please describe your dream scent."); return; }
+
+            showLoading(true);
+            try {
+                const response = await fetch('/api/dream_scent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+                const data = await response.json();
+
+                // AI Card
+                document.getElementById('dream-ai-name').textContent = data.ai_profile.name;
+                document.getElementById('dream-ai-desc').textContent = data.ai_profile.description;
+                document.getElementById('dream-ai-notes').innerHTML = data.ai_profile.notes.map(n =>
+                    `<span class="badge bg-primary rounded-pill m-1">${n}</span>`
+                ).join('');
+
+                // Real Card
+                document.getElementById('dream-real-name').textContent = data.real_match.name;
+                document.getElementById('dream-real-reason').textContent = data.real_match.reason;
+
+                dreamResultContainer.classList.remove('d-none');
+                dreamResultContainer.scrollIntoView({behavior:'smooth'});
+
+            } catch(e) {
+                console.error(e);
+                showError("Could not generate dream scent.");
+            } finally {
+                showLoading(false);
+            }
         });
 
         // --- Chat Logic ---
@@ -1792,60 +1901,55 @@
         // --- DNA Logic ---
         btnDnaAnalysis.addEventListener('click', analyzeCollection);
 
-        function analyzeCollection() {
+        async function analyzeCollection() {
             const collection = getCollection().filter(i => i.type !== 'wishlist');
             if(collection.length < 1) { alert("Add some perfumes to your shelf first!"); return; }
 
-            // Logic to count vibes and notes
-            let vibes = { 'fresh': 0, 'floral': 0, 'warm': 0, 'sweet': 0, 'aquatic': 0, 'wood': 0 };
-            let notes = {};
+            const payload = collection.map(item => ({
+                name: item.name,
+                notes: item.data && item.data.fragrance_profile ? item.data.fragrance_profile.notes : {}
+            }));
 
-            collection.forEach(item => {
-                const text = (item.recommendation + " " + item.name).toLowerCase();
-                if(text.includes('fresh') || text.includes('citrus')) vibes['fresh']++;
-                if(text.includes('floral') || text.includes('rose')) vibes['floral']++;
-                if(text.includes('warm') || text.includes('spicy')) vibes['warm']++;
-                if(text.includes('sweet') || text.includes('vanilla')) vibes['sweet']++;
-                if(text.includes('wood') || text.includes('earthy')) vibes['wood']++;
+            showLoading(true);
+            try {
+                const response = await fetch('/api/analyze_collection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ collection: payload })
+                });
+                const data = await response.json();
 
-                // Notes extraction (if available in data)
-                if(item.data && item.data.fragrance_profile && item.data.fragrance_profile.notes) {
-                    const prof = item.data.fragrance_profile.notes;
-                    Object.values(prof).flat().forEach(n => {
-                        const clean = n.trim();
-                        notes[clean] = (notes[clean] || 0) + 1;
-                    });
+                // Chart (Using backend stats)
+                const vibes = data.stats.vibes;
+                const total = Object.values(vibes).reduce((a,b)=>a+b, 0) || 1;
+                let gradient = [];
+                let current = 0;
+                const colors = { 'fresh': '#a8ff78', 'floral': '#FF9A9E', 'warm': '#c31432', 'sweet': '#FDC830', 'wood': '#8B4513', 'aquatic': '#2193b0' };
+
+                for(const [v, count] of Object.entries(vibes)) {
+                    if(count > 0) {
+                        const pct = (count / total) * 100;
+                        gradient.push(`${colors[v] || '#ccc'} ${current}% ${current + pct}%`);
+                        current += pct;
+                    }
                 }
-            });
 
-            // Chart
-            const total = Object.values(vibes).reduce((a,b)=>a+b, 0) || 1;
-            let gradient = [];
-            let current = 0;
-            const colors = { 'fresh': '#a8ff78', 'floral': '#FF9A9E', 'warm': '#c31432', 'sweet': '#FDC830', 'wood': '#8B4513', 'aquatic': '#2193b0' };
+                document.getElementById('dna-chart').style.background = `conic-gradient(${gradient.join(', ')})`;
 
-            for(const [v, count] of Object.entries(vibes)) {
-                if(count > 0) {
-                    const pct = (count / total) * 100;
-                    gradient.push(`${colors[v] || '#ccc'} ${current}% ${current + pct}%`);
-                    current += pct;
-                }
+                document.getElementById('dna-signature').textContent = `Signature: ${data.signature_vibe.toUpperCase()}`;
+                document.getElementById('dna-desc').textContent = data.description;
+
+                document.getElementById('dna-top-notes').innerHTML = data.top_notes.map(n =>
+                    `<span class="badge bg-secondary rounded-pill">${n}</span>`
+                ).join(' ');
+
+                dnaModal.show();
+            } catch(e) {
+                console.error(e);
+                showError("Could not analyze collection.");
+            } finally {
+                showLoading(false);
             }
-
-            document.getElementById('dna-chart').style.background = `conic-gradient(${gradient.join(', ')})`;
-
-            // Signature
-            const topVibe = Object.keys(vibes).reduce((a, b) => vibes[a] > vibes[b] ? a : b);
-            document.getElementById('dna-signature').textContent = `Signature: ${topVibe.charAt(0).toUpperCase() + topVibe.slice(1)}`;
-            document.getElementById('dna-desc').textContent = `Your collection is dominated by ${topVibe} notes.`;
-
-            // Top Notes
-            const sortedNotes = Object.entries(notes).sort((a,b) => b[1]-a[1]).slice(0, 5);
-            document.getElementById('dna-top-notes').innerHTML = sortedNotes.map(([n, c]) =>
-                `<span class="badge bg-secondary rounded-pill">${n}</span>`
-            ).join(' ');
-
-            dnaModal.show();
         }
 
         // --- Common ---

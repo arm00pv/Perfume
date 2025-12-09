@@ -649,6 +649,119 @@ def mix_perfumes():
         'mixing_tip': mixing_tip
     })
 
+# --- Dream Scent Logic ---
+KEYWORD_TO_NOTES = {
+    'rain': ['Petrichor', 'Water Notes', 'Ozone', 'Geosmin'],
+    'library': ['Paper', 'Leather', 'Cedar', 'Dust', 'Vanillin'],
+    'book': ['Paper', 'Leather', 'Ink', 'Glue'],
+    'forest': ['Pine', 'Fir', 'Oakmoss', 'Cypress', 'Resin'],
+    'ocean': ['Sea Salt', 'Ambroxan', 'Calone', 'Driftwood', 'Algae'],
+    'beach': ['Coconut', 'Solar Notes', 'Sand', 'Salt'],
+    'candy': ['Sugar', 'Cotton Candy', 'Caramel', 'Strawberry'],
+    'garden': ['Rose', 'Jasmine', 'Green Grass', 'Soil'],
+    'night': ['Incense', 'Myrrh', 'Dark Chocolate', 'Patchouli', 'Black Pepper'],
+    'morning': ['Lemon', 'Tea', 'White Musk', 'Dew Drop'],
+    'fire': ['Smoke', 'Birch Tar', 'Clove', 'Amber'],
+    'winter': ['Cinnamon', 'Clove', 'Pine', 'Vanilla'],
+    'summer': ['Lime', 'Coconut', 'Watermelon', 'Mint']
+}
+
+@app.route('/api/dream_scent', methods=['POST'])
+def dream_scent():
+    data = request.get_json()
+    prompt = data.get('prompt', '').lower()
+
+    if not prompt:
+        return jsonify({'error': 'No prompt provided'}), 400
+
+    # 1. Extract Notes
+    extracted_notes = []
+    for keyword, notes in KEYWORD_TO_NOTES.items():
+        if keyword in prompt:
+            extracted_notes.extend(notes)
+
+    # Fallback if no keywords matched
+    if not extracted_notes:
+        # Simple heuristic based on prompt length or random
+        extracted_notes = ['Abstract Musk', 'Iso E Super', 'Clean Air']
+
+    # Unique and Limit
+    extracted_notes = list(set(extracted_notes))[:6]
+
+    # 2. Determine Archetype
+    dummy_notes = {'Middle': extracted_notes}
+    archetype = analyze_notes(dummy_notes)
+    arch_data = PERFUME_ARCHETYPES.get(archetype, PERFUME_ARCHETYPES['fresh'])
+
+    # 3. Generate Profile
+    ai_name = f"Essence of {prompt.split()[0].title()}" if len(prompt.split()) < 5 else "Dreamscape No. 5"
+    ai_desc = f"An AI-generated composition capturing '{prompt}'. Dominant notes of {', '.join(extracted_notes[:3])} create a {archetype} atmosphere."
+
+    # 4. Find Real Match
+    # For simplicity, pick a random similar from the archetype, but ideally we'd compare notes
+    real_match_name = random.choice(arch_data['similars'])
+
+    return jsonify({
+        'ai_profile': {
+            'name': ai_name,
+            'description': ai_desc,
+            'notes': extracted_notes,
+            'archetype': archetype
+        },
+        'real_match': {
+            'name': real_match_name,
+            'reason': f"This real perfume also shares the {archetype} character matching your dream."
+        }
+    })
+
+@app.route('/api/analyze_collection', methods=['POST'])
+def analyze_collection():
+    data = request.get_json()
+    collection = data.get('collection', []) # List of objects {name, notes}
+
+    if not collection:
+        return jsonify({'error': 'Empty collection'}), 400
+
+    # 1. Tally Stats
+    vibes = {'fresh': 0, 'floral': 0, 'warm': 0, 'sweet': 0, 'aquatic': 0, 'wood': 0}
+    note_counts = {}
+
+    for item in collection:
+        notes = item.get('notes', {})
+        # Archetype
+        arch = analyze_notes(notes)
+        vibes[arch] = vibes.get(arch, 0) + 1
+
+        # Notes
+        for cat, nlist in notes.items():
+            for n in nlist:
+                clean_n = n.strip() # Removed lower() to keep casing for display
+                note_counts[clean_n] = note_counts.get(clean_n, 0) + 1
+
+    # 2. Determine Signature
+    signature_vibe = max(vibes, key=vibes.get)
+    if vibes[signature_vibe] == 0: signature_vibe = 'undefined'
+
+    # 3. Top Notes
+    sorted_notes = sorted(note_counts.items(), key=lambda x: x[1], reverse=True)
+    top_notes = [n for n, c in sorted_notes[:5]]
+
+    # 4. Recommendations (Missing Piece)
+    # Find the lowest non-zero vibe or just missing one
+    missing = [k for k,v in vibes.items() if v == 0]
+    recommendation_vibe = random.choice(missing) if missing else 'fresh'
+
+    description = f"Your collection is heavily leaned towards **{signature_vibe.upper()}** scents. "
+    if recommendation_vibe:
+        description += f"To balance your shelf, consider adding a **{recommendation_vibe.upper()}** fragrance next."
+
+    return jsonify({
+        'stats': {'vibes': vibes},
+        'signature_vibe': signature_vibe,
+        'top_notes': top_notes,
+        'description': description
+    })
+
 @app.route('/api/vibe_check', methods=['POST'])
 def vibe_check():
     data = request.get_json()
