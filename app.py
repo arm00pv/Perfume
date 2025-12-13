@@ -173,8 +173,15 @@ def get_recommendation_and_similars(notes):
     intro = "This fragrance profile suggests a scent that is "
     full_text = intro + data['desc'] + ". It is likely best suited for " + data['occasion'] + "."
 
-    # Pick 3 random similars
-    similars = random.sample(data['similars'], min(3, len(data['similars'])))
+    # Pick 3 random similars and add context context tuples (Name, Relation)
+    # Relation logic is simplified for demo
+    similars = []
+    picks = random.sample(data['similars'], min(3, len(data['similars'])))
+
+    for pick in picks:
+        # Assign a random relational tag
+        tag = random.choice(["Same Vibe", "Fresher Alternative", "Warmer Pick", "Classic Choice"])
+        similars.append((pick, tag))
 
     return full_text, similars
 
