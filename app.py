@@ -166,6 +166,38 @@ def analyze_versatility(text, notes):
 
     return scores
 
+def calculate_blind_buy_score(notes):
+    """
+    Calculates a safety score (0-100) for blind buying.
+    High score = Safer/Crowd Pleaser. Low score = Polarizing.
+    """
+    score = 70 # Start neutral-safe
+
+    all_notes = []
+    for category in notes.values():
+        all_notes.extend([n.lower() for n in category])
+    all_notes_str = " ".join(all_notes)
+
+    # Safe notes
+    if any(x in all_notes_str for x in ['citrus', 'lemon', 'lime', 'bergamot', 'orange']): score += 10
+    if any(x in all_notes_str for x in ['vanilla', 'musk', 'clean', 'fresh', 'water']): score += 5
+    if any(x in all_notes_str for x in ['lavender', 'sage', 'mint']): score += 5
+
+    # Risky notes
+    if any(x in all_notes_str for x in ['oud', 'civet', 'castoreum', 'animalic']): score -= 25
+    if any(x in all_notes_str for x in ['leather', 'tobacco', 'smoke', 'incense']): score -= 15
+    if any(x in all_notes_str for x in ['tuberose', 'patchouli', 'clove', 'cumin']): score -= 10
+
+    # Clamp
+    score = max(0, min(100, score))
+
+    label = "Unknown"
+    if score >= 85: label = "Safe Bet (Crowd Pleaser)"
+    elif score >= 60: label = "Moderate Risk (Try First)"
+    else: label = "Daring Choice (Polarizing)"
+
+    return score, label
+
 def get_recommendation_and_similars(notes):
     archetype = analyze_notes(notes)
     data = PERFUME_ARCHETYPES.get(archetype, PERFUME_ARCHETYPES['fresh'])
@@ -331,6 +363,10 @@ def scrape_fragrantica(perfume_name):
         result_data['similars'] = sims
         result_data['versatility'] = analyze_versatility(description_text, notes)
 
+        bb_score, bb_label = calculate_blind_buy_score(notes)
+        result_data['blind_buy_score'] = bb_score
+        result_data['blind_buy_label'] = bb_label
+
         return result_data
 
     except Exception as e:
@@ -372,13 +408,16 @@ def get_mock_data(name):
         }
 
     rec, sims = get_recommendation_and_similars(notes)
+    bb_score, bb_label = calculate_blind_buy_score(notes)
     return {
         'name': name.title(),
         'notes': notes,
         'image_url': image_url,
         'recommendation': rec + " (Note: This is a simulated result as live data was inaccessible.)",
         'similars': sims,
-        'versatility': analyze_versatility("", notes)
+        'versatility': analyze_versatility("", notes),
+        'blind_buy_score': bb_score,
+        'blind_buy_label': bb_label
     }
 
 def resolve_barcode(barcode):

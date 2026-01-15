@@ -521,6 +521,7 @@
                     <ul class="nav nav-tabs border-bottom-0" id="collection-tabs" role="tablist">
                         <li class="nav-item"><button class="nav-link active" data-bs-target="#col-shelf" data-bs-toggle="tab">My Shelf</button></li>
                         <li class="nav-item"><button class="nav-link" data-bs-target="#col-wishlist" data-bs-toggle="tab">Wishlist</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-target="#col-planner" data-bs-toggle="tab">Planner</button></li>
                     </ul>
                     <div class="position-absolute end-0 top-0 btn-group btn-group-sm">
                         <button class="btn btn-outline-primary" id="btn-wardrobe" title="Smart Pick">
@@ -537,6 +538,14 @@
                     </div>
                     <div class="tab-pane fade" id="col-wishlist">
                         <div id="wishlist-grid" class="row row-cols-1 row-cols-md-3 g-4"></div>
+                    </div>
+                    <div class="tab-pane fade" id="col-planner">
+                        <div class="card shadow-sm p-3">
+                            <h6 class="mb-3 text-center text-muted">Weekly Scent Schedule</h6>
+                            <div class="list-group list-group-flush" id="planner-list">
+                                <!-- Days injected via JS -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -618,6 +627,19 @@
                                         <!-- Pyramid will be injected here -->
                                     </div>
 
+                                    <!-- Blind Buy Meter -->
+                                    <div id="blind-buy-container" class="mt-3 mb-3 d-none">
+                                        <p class="small text-muted mb-1"><i class="bi bi-gift"></i> Blind Buy Safety Risk:</p>
+                                        <div class="progress" style="height: 15px;">
+                                            <div id="blind-buy-bar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <small class="text-muted" style="font-size: 0.7em;">Risky</small>
+                                            <small id="blind-buy-label" class="fw-bold text-dark" style="font-size: 0.8em;"></small>
+                                            <small class="text-muted" style="font-size: 0.7em;">Safe</small>
+                                        </div>
+                                    </div>
+
                                     <!-- Similar Perfumes Section -->
                                     <div id="similar-perfumes-container" class="mt-4 pt-3 border-top d-none">
                                         <p class="small text-uppercase fw-bold text-secondary mb-2"><i class="bi bi-stars"></i> You Might Also Like</p>
@@ -687,6 +709,23 @@
           </div>
           <div class="modal-body" id="ingredientModalBody">
             ...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Planner Selector Modal -->
+    <div class="modal fade" id="plannerModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Select Scent for <span id="planner-day-title"></span></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+             <div class="list-group" id="planner-options">
+                 <!-- Options from shelf -->
+             </div>
           </div>
         </div>
       </div>
@@ -846,6 +885,10 @@
         const btnWardrobe = document.getElementById('btn-wardrobe');
         const wardrobeModal = new bootstrap.Modal(document.getElementById('wardrobeModal'));
         const btnWardrobeGo = document.getElementById('btn-wardrobe-go');
+
+        // Planner Elements
+        const plannerModal = new bootstrap.Modal(document.getElementById('plannerModal'));
+        let currentPlannerDay = null;
 
         const quizSubmitBtn = document.getElementById('quiz-submit-btn');
         const trendingContainer = document.getElementById('trending-container');
@@ -1710,6 +1753,23 @@
             // AI Analysis Radar
             renderRadar(profile.versatility);
 
+            // Blind Buy Meter
+            if (profile.blind_buy_score !== undefined) {
+                const score = profile.blind_buy_score;
+                const bar = document.getElementById('blind-buy-bar');
+                bar.style.width = score + "%";
+                bar.setAttribute('aria-valuenow', score);
+
+                if(score >= 80) bar.className = "progress-bar bg-success";
+                else if(score >= 50) bar.className = "progress-bar bg-warning";
+                else bar.className = "progress-bar bg-danger";
+
+                document.getElementById('blind-buy-label').textContent = profile.blind_buy_label || `${score}/100`;
+                document.getElementById('blind-buy-container').classList.remove('d-none');
+            } else {
+                document.getElementById('blind-buy-container').classList.add('d-none');
+            }
+
             updateSaveButtonState(name);
 
             // Add to History
@@ -1961,6 +2021,73 @@
         }
 
         document.getElementById('pills-journal-tab').addEventListener('shown.bs.tab', renderJournal);
+
+        // --- Planner Logic ---
+        function renderPlanner() {
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const plan = JSON.parse(localStorage.getItem('scentlens_plan')) || {};
+            const container = document.getElementById('planner-list');
+
+            if(!container) return;
+
+            container.innerHTML = days.map(day => {
+                const scent = plan[day] || null;
+                const scentName = scent ? scent.name : 'Tap to set';
+                const scentImg = scent ? scent.image : 'https://via.placeholder.com/40?text=+';
+
+                return `
+                <div class="list-group-item d-flex justify-content-between align-items-center" onclick="openPlannerModal('${day}')" style="cursor:pointer;">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="fw-bold text-secondary" style="width: 90px;">${day}</div>
+                        <img src="${scentImg}" class="rounded-circle border" width="40" height="40" style="object-fit:cover;">
+                        <span class="${scent ? 'text-dark' : 'text-muted fst-italic'}">${scentName}</span>
+                    </div>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </div>`;
+            }).join('');
+        }
+
+        window.openPlannerModal = (day) => {
+            currentPlannerDay = day;
+            document.getElementById('planner-day-title').textContent = day;
+
+            const shelf = getCollection().filter(i => i.type !== 'wishlist');
+            const list = document.getElementById('planner-options');
+
+            if(shelf.length === 0) {
+                list.innerHTML = '<p class="text-center text-muted p-3">Your shelf is empty! Add some perfumes first.</p>';
+            } else {
+                list.innerHTML = `
+                    <button class="list-group-item list-group-item-action text-danger text-center" onclick="setPlannerScent(null)">
+                        <i class="bi bi-x-circle"></i> Clear Slot
+                    </button>
+                ` + shelf.map(item => `
+                    <button class="list-group-item list-group-item-action d-flex align-items-center gap-2" onclick='setPlannerScent(${JSON.stringify({name: item.name, image: item.image}).replace(/'/g, "&apos;")})'>
+                        <img src="${item.image}" width="30" height="30" class="rounded-circle">
+                        <span>${item.name}</span>
+                    </button>
+                `).join('');
+            }
+
+            plannerModal.show();
+        };
+
+        window.setPlannerScent = (scentObj) => {
+            if(!currentPlannerDay) return;
+
+            let plan = JSON.parse(localStorage.getItem('scentlens_plan')) || {};
+            if(scentObj) {
+                plan[currentPlannerDay] = scentObj;
+            } else {
+                delete plan[currentPlannerDay];
+            }
+            localStorage.setItem('scentlens_plan', JSON.stringify(plan));
+
+            renderPlanner();
+            plannerModal.hide();
+        };
+
+        document.getElementById('pills-collection-tab').addEventListener('shown.bs.tab', renderPlanner);
 
         // --- Smart Wardrobe Logic ---
         btnWardrobe.addEventListener('click', () => {
